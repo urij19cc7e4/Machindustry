@@ -37,7 +37,7 @@ public class Machindustry extends Mod {
     private Tile tile1 = null;
     private boolean build = false;
 
-    public ExampleJavaMod() {
+    public Machindustry() {
         System.out.println("Hello");
         Core.input.addProcessor(new InputProcessor() {
             public boolean keyDown(KeyCode keycode) {
@@ -58,10 +58,17 @@ public class Machindustry extends Mod {
             {
                 Unit unit = Vars.player.unit();
 
-				WorldState validPlace = new WorldState(Vars.world.height(), Vars.world.width());
+				WorldState validPlace = null;
+                try {
+                    validPlace = new WorldState(Vars.world.height(), Vars.world.width());
+                } catch (Exception e) {
+                    // TODO Auto-generated catch block
+                    e.printStackTrace();
+                }
                 SolidPathFinder pathFinder = new SolidPathFinder(Vars.world.height(), Vars.world.width());
 				validPlace.UpdateMap();
                 pathFinder.UpdateMap(validPlace.Map);
+                pathFinder.UpdateMap(validPlace.BuildPlans);
                 LinkedList<BuildPlan> buildPath = pathFinder.BuildPath(tile1, event.tile, true);
                 tile1 = null;
 

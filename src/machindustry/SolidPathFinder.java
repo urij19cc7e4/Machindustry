@@ -2160,8 +2160,8 @@ public class SolidPathFinder
 	}
 
 	/**
-	Updates internal map from WorldState map
-	 * @param map - WorldState map
+	Updates internal map from building validation map
+	 * @param map - Building validation map
 	*/
 	public void UpdateMap(boolean[] map)
 	{
@@ -2222,7 +2222,7 @@ public class SolidPathFinder
 
 	/**
 	Updates internal map from building plans
-	 * @param buildPlans - Array of building plans
+	 * @param buildPlans - Building plans
 	*/
 	public void UpdateMap(BuildPlan[] buildPlans)
 	{
@@ -2245,7 +2245,7 @@ public class SolidPathFinder
 					int y1 = buildPlan.y + block.sizeOffset;
 					int y2 = y1 + block.size;
 
-					int step = _width - x1;
+					int step = _width + x1 - x2;
 
 					for (int y = y1, i = x1 + y1 * _width; y < y2; ++y, i += step)
 						for (int x = x1; x < x2; ++x, ++i)
