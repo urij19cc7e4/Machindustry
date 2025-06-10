@@ -2179,7 +2179,7 @@ public class SolidPathFinder
 		{
 			final Tile tile = tiles.geti(i);
 
-			if (map[i])
+			if (!map[i])
 				_map[i] = EMPTY;
 			else
 			{

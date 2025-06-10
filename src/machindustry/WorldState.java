@@ -8,6 +8,7 @@ import arc.func.Cons;
 import arc.math.Mathf;
 import arc.math.geom.Vec2;
 import arc.struct.ObjectMap;
+import arc.struct.Queue;
 import arc.struct.Seq;
 import mindustry.Vars;
 import mindustry.content.Blocks;
@@ -59,10 +60,17 @@ public class WorldState implements AutoCloseable
 	private void MainGameThreadUpdate()
 	{
 		Seq<TeamData> teams = Vars.state.teams.active;
-		BuildPlan[] buildPlans = Vars.player.unit().plans.values.clone();
-		
+		Queue<BuildPlan> queue = Vars.player.unit().plans;
+
 		CoreBuild[] cores;
+		BuildPlan[] buildPlans = new BuildPlan[queue.size];
+
 		int count = 0;
+
+		for (BuildPlan buildPlan : queue)
+			buildPlans[count++] = buildPlan;
+
+		count = 0;
 
 		for (TeamData teamData : teams)
 			count += teamData.cores.size;
@@ -154,6 +162,7 @@ public class WorldState implements AutoCloseable
 	*/
 	public void UpdateMap()
 	{
+		MainGameThreadUpdate();
 		final Team team = Vars.player.team();
 		final Tiles tiles = Vars.world.tiles;
 

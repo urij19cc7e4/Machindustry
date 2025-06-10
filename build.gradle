@@ -12,7 +12,7 @@ repositories{
 
 java{
     targetCompatibility = 8
-    sourceCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_25
 }
 
 ext{
@@ -76,6 +76,7 @@ jar{
     }
 
     from(projectDir){
+        include "icon.png"
         include "mod.hjson"
     }
 

@@ -4,17 +4,17 @@ import numpy
 import os
 
 
-# red channel have two times less brightness than green so make it more intensive
-def make_red(image_arr, x1, y1, x2, y2, a = 25.0):
+# the less z is the more intensive red channel is, but it must be greater than 1
+def make_red(image_arr, x1, y1, x2, y2, z = 25.0):
 
-	assert a > 1.0
+	assert z > 1.0
 
 	for x in range(x1, x2):
 		for y in range(y1, y2):
 			r, g, b, a = image_arr[x, y]
 
-			rg = math.log(float(r) + a, float(g) + a)
-			rb = math.log(float(r) + a, float(b) + a)
+			rg = math.log(float(r) + z, float(g) + z)
+			rb = math.log(float(r) + z, float(b) + z)
 			c = (rg + rb) / 2.0
 
 			if c >= 1.0 and r != 0:
@@ -52,6 +52,8 @@ def make_white(image_arr, x1, y1, x2, y2):
 				image_arr[x, y] = r, r, r, a
 
 
+# process only regions where terminator's eyes are
+
 # terminator_960.png
 # regions = [(240, 360, 440, 500), (512, 360, 712, 500)]
 
@@ -65,14 +67,23 @@ image = Image.open(filepath).convert("RGBA")
 
 image_red = image.copy()
 image_black = image.copy()
+
+# make red channel of source image more intensive to increase green and white brightness
+if len(regions) == 0:
+	make_red(image.load(), 0, 0, *image.load().shape, 25.0)
+else:
+	for i in range(len(regions)):
+		make_red(image.load(), *regions[i], 25.0)
+
 image_green = image.copy()
 image_white = image.copy()
 
+# red channel have two times less brightness than green so make it even more intensive
 if len(regions) == 0:
-	make_red(image_red.load(), 0, 0, *image_red.load().shape)
+	make_red(image_red.load(), 0, 0, *image_red.load().shape, 5.0)
 else:
 	for i in range(len(regions)):
-		make_red(image_red.load(), *regions[i])
+		make_red(image_red.load(), *regions[i], 5.0)
 
 image_red.save(filepath1 + "_red" + filepath2)
 
