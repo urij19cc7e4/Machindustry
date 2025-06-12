@@ -65,7 +65,7 @@ public class Machindustry extends Mod {
                     // TODO Auto-generated catch block
                     e.printStackTrace();
                 }
-                SolidPathFinder pathFinder = new SolidPathFinder(Vars.world.height(), Vars.world.width());
+                LiquidPathFinder pathFinder = new LiquidPathFinder(Vars.world.height(), Vars.world.width());
 				validPlace.UpdateMap();
                 pathFinder.UpdateMap(validPlace.Map);
                 pathFinder.UpdateMap(validPlace.BuildPlans);

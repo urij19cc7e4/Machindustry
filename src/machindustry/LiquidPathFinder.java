@@ -27,16 +27,19 @@
 //               DANGER 
 //              ++ -- ++
 //     ++ -- ++ ++ -- ++ ++ -- ++
-//      DANGER  ||ITEM||  DANGER 
+//      DANGER  ||LQID||  DANGER 
 //     ++ -- ++ ++ -- ++ ++ -- ++
 //              ++ -- ++
 //               DANGER 
 //              ++ -- ++
 // 
-// Every building that can output items creates danger tiles around its perimeter
+// Every building that can output liquids creates danger tiles around its perimeter
 
 // Collide system:
 // Collide = damage && danger
+
+// Invisible system:
+// Every conduit is invisible
 
 // Protect system:
 // Every bridge base (base only) tile is protect
@@ -63,7 +66,7 @@ import mindustry.world.Block;
 import mindustry.world.Tile;
 import mindustry.world.Tiles;
 
-public class SolidPathFinder
+public class LiquidPathFinder
 {
 	// Not using enum because of Java memory model
 	// Need this to work fast
@@ -94,32 +97,37 @@ public class SolidPathFinder
 	// Enum TileState
 
 	/**
-	 * Can not through with bridge or duct
+	 * Can through with junction but not bridge or conduit
+	*/
+    private static final byte INVISIBLE = (byte)-1;
+
+	/**
+	 * Can not through with bridge or conduit
 	*/
 	private static final byte PROTECT = (byte)0;
 
 	/**
-	 * Can through with bridge or duct, another bridge heading to this tile, items output nearby
+	 * Can through with bridge or conduit, another bridge heading to this tile, liquids output nearby
 	*/
 	private static final byte COLLIDE = (byte)1;
 
 	/**
-	 * Can through with bridge or duct, another bridge heading to this tile
+	 * Can through with bridge or conduit, another bridge heading to this tile
 	*/
 	private static final byte DAMAGE = (byte)2;
 
 	/**
-	 * Can through with bridge or duct, items output nearby
+	 * Can through with bridge or conduit, liquids output nearby
 	*/
 	private static final byte DANGER = (byte)3;
 
 	/**
-	 * Can through with bridge but not duct
+	 * Can through with bridge but not conduit
 	*/
 	private static final byte BLOCK = (byte)4;
 
 	/**
-	 * Can through with bridge or duct
+	 * Can through with bridge or conduit
 	*/
 	private static final byte EMPTY = (byte)5;
 
@@ -203,7 +211,7 @@ public class SolidPathFinder
 			if (!pMap[right_1_1] && (!rMap[right_1_4 + RIGHT] || !rMap[right_1_4 + UPPER] || !rMap[right_1_4 + BOTTOM]) && (pStep <= 1 || bMap[idx] == 0))
 			{
 				// Check if items output block is behind
-				// pStep == 1 is to let first tile duct be non-armored and bridge cross danger building
+				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && x1 - 1 >= 0 && oMap[left_1_1])
 					return false;
 
@@ -391,7 +399,7 @@ public class SolidPathFinder
 			if (!pMap[upper_1_1] && (!rMap[upper_1_4 + UPPER] || !rMap[upper_1_4 + RIGHT] || !rMap[upper_1_4 + LEFT]) && (pStep <= 1 || bMap[idx] == 0))
 			{
 				// Check if items output block is behind
-				// pStep == 1 is to let first tile duct be non-armored and bridge cross danger building
+				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && y1 - 1 >= 0 && oMap[bottom_1_1])
 					return false;
 
@@ -577,7 +585,7 @@ public class SolidPathFinder
 			if (!pMap[left_1_1] && (!rMap[left_1_4 + LEFT] || !rMap[left_1_4 + UPPER] || !rMap[left_1_4 + BOTTOM]) && (pStep <= 1 || bMap[idx] == 0))
 			{
 				// Check if items output block is behind
-				// pStep == 1 is to let first tile duct be non-armored and bridge cross danger building
+				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && x1 + 1 < _width && oMap[right_1_1])
 					return false;
 
@@ -765,7 +773,7 @@ public class SolidPathFinder
 			if (!pMap[bottom_1_1] && (!rMap[bottom_1_4 + BOTTOM] || !rMap[bottom_1_4 + RIGHT] || !rMap[bottom_1_4 + LEFT]) && (pStep <= 1 || bMap[idx] == 0))
 			{
 				// Check if items output block is behind
-				// pStep == 1 is to let first tile duct be non-armored and bridge cross danger building
+				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && y1 + 1 < _height && oMap[upper_1_1])
 					return false;
 
@@ -902,7 +910,7 @@ public class SolidPathFinder
 	}
 
 	/**
-	 * Evaluates building items output influence on nearby tiles (only bridge)
+	 * Evaluates building liquids output influence on nearby tiles (only bridge)
 	 * @param r - building rotation
 	 * @param x - building x coordinate
 	 * @param y - building y coordinate
@@ -933,7 +941,7 @@ public class SolidPathFinder
 							return;
 					}
 
-				// Bridge outputs even to armored duct so make block there since it is end-chain bridge
+				// Bridge outputs to conduit so make block there since it is end-chain bridge
 				if (x_beg < _width)
 					_map[i_beg] = BLOCK;
 
@@ -960,7 +968,7 @@ public class SolidPathFinder
 							return;
 					}
 
-				// Bridge outputs even to armored duct so make block there since it is end-chain bridge
+				// Bridge outputs to conduit so make block there since it is end-chain bridge
 				if (y_beg < _height)
 					_map[i_beg] = BLOCK;
 
@@ -987,7 +995,7 @@ public class SolidPathFinder
 							return;
 					}
 
-				// Bridge outputs even to armored duct so make block there since it is end-chain bridge
+				// Bridge outputs to conduit so make block there since it is end-chain bridge
 				if (x_beg >= 0)
 					_map[i_beg] = BLOCK;
 
@@ -1014,7 +1022,7 @@ public class SolidPathFinder
 							return;
 					}
 
-				// Bridge outputs even to armored duct so make block there since it is end-chain bridge
+				// Bridge outputs to conduit so make block there since it is end-chain bridge
 				if (y_beg >= 0)
 					_map[i_beg] = BLOCK;
 
@@ -1027,7 +1035,7 @@ public class SolidPathFinder
 	}
 
 	/**
-	 * Evaluates building items output influence on nearby tiles (except bridge)
+	 * Evaluates building liquids output influence on nearby tiles (except bridge)
 	 * @param b - building block
 	 * @param r - building rotation
 	 * @param x - building x coordinate
@@ -1036,11 +1044,8 @@ public class SolidPathFinder
 	*/
 	private void ProcessBlock(final Block b, final int r, final int x, final int y, final int i)
 	{
-		// (Armored) duct outputs even to armored duct so make block there
-		// (Armored) duct is not output to mid- and end-chain bridge but this
-		// will make pathing logic a lot more complicated because it outputs to
-		// begin-chain bridge and I do not have this term so this case is ignored
-		if (b.isDuct)
+		// Conduit outputs to bridge and conduit so make block there
+		if (b == Blocks.reinforcedConduit)
 		{
 			switch (r)
 			{
@@ -1048,7 +1053,7 @@ public class SolidPathFinder
 				{
 					final int ii = i + 1;
 
-					if (x < _width - 1 && _map[ii] != PROTECT)
+					if (x < _width - 1 && _map[ii] != INVISIBLE && _map[ii] != PROTECT)
 						_map[ii] = BLOCK;
 
 					break;
@@ -1058,7 +1063,7 @@ public class SolidPathFinder
 				{
 					final int ii = i + _width;
 
-					if (y < _height - 1 && _map[ii] != PROTECT)
+					if (y < _height - 1 && _map[ii] != INVISIBLE && _map[ii] != PROTECT)
 						_map[ii] = BLOCK;
 
 					break;
@@ -1068,7 +1073,7 @@ public class SolidPathFinder
 				{
 					final int ii = i - 1;
 
-					if (x > 0 && _map[ii] != PROTECT)
+					if (x > 0 && _map[ii] != INVISIBLE && _map[ii] != PROTECT)
 						_map[ii] = BLOCK;
 
 					break;
@@ -1078,7 +1083,7 @@ public class SolidPathFinder
 				{
 					final int ii = i - _width;
 
-					if (y > 0 && _map[ii] != PROTECT)
+					if (y > 0 && _map[ii] != INVISIBLE && _map[ii] != PROTECT)
 						_map[ii] = BLOCK;
 
 					break;
@@ -1088,76 +1093,26 @@ public class SolidPathFinder
 					break;
 			}
 		}
-		// Surge duct is not output to armored duct but to
-		// non-armored duct so make danger ahead of it
-		else if (b == Blocks.surgeConveyor)
-		{
-			switch (r)
-			{
-				case RIGHT:
-				{
-					final int ii = i + 1;
+		// Junction outputs to bridge and conduit so make blocks around
+        else if (b == Blocks.reinforcedLiquidJunction)
+        {
+			final int right = i + 1;
+			final int upper = i + _width;
+			final int left = i - 1;
+			final int bottom = i - _width;
 
-					if (x < _width - 1)
-					{
-						if (_map[ii] == EMPTY)
-							_map[ii] = DANGER;
-						else if (_map[ii] == DAMAGE)
-							_map[ii] = COLLIDE;
-					}
+            if (x < _width - 1 && _map[right] != INVISIBLE && _map[right] != PROTECT)
+				_map[right] = BLOCK;
 
-					break;
-				}
+            if (y < _height - 1 && _map[upper] != INVISIBLE && _map[upper] != PROTECT)
+				_map[upper] = BLOCK;
 
-				case UPPER:
-				{
-					final int ii = i + _width;
+            if (x > 0 && _map[left] != INVISIBLE && _map[left] != PROTECT)
+				_map[left] = BLOCK;
 
-					if (y < _height - 1)
-					{
-						if (_map[ii] == EMPTY)
-							_map[ii] = DANGER;
-						else if (_map[ii] == DAMAGE)
-							_map[ii] = COLLIDE;
-					}
-
-					break;
-				}
-
-				case LEFT:
-				{
-					final int ii = i - 1;
-
-					if (x > 0)
-					{
-						if (_map[ii] == EMPTY)
-							_map[ii] = DANGER;
-						else if (_map[ii] == DAMAGE)
-							_map[ii] = COLLIDE;
-					}
-
-					break;
-				}
-
-				case BOTTOM:
-				{
-					final int ii = i - _width;
-
-					if (y > 0)
-					{
-						if (_map[ii] == EMPTY)
-							_map[ii] = DANGER;
-						else if (_map[ii] == DAMAGE)
-							_map[ii] = COLLIDE;
-					}
-
-					break;
-				}
-
-				default:
-					break;
-			}
-		}
+            if (y > 0 && _map[bottom] != INVISIBLE && _map[bottom] != PROTECT)
+				_map[bottom] = BLOCK;
+        }
 		// Make connected to building tiles danger
 		else
 		{
@@ -1257,7 +1212,7 @@ public class SolidPathFinder
 		}
 	}
 
-	public SolidPathFinder(int height, int width)
+	public LiquidPathFinder(int height, int width)
 	{
 		_height = height;
 		_width = width;
@@ -1265,7 +1220,7 @@ public class SolidPathFinder
 		_map = new byte[_size];
 	}
 
-	public SolidPathFinder(int height, int width, long freq, long time)
+	public LiquidPathFinder(int height, int width, long freq, long time)
 	{
 		this(height, width);
 

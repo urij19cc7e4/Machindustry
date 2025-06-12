@@ -2,6 +2,7 @@ package machindustry;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.concurrent.atomic.AtomicReference;
 
 import arc.Events;
 import arc.func.Cons;
@@ -29,43 +30,90 @@ import mindustry.world.blocks.storage.CoreBlock.CoreBuild;
 @SuppressWarnings({ "deprecation", "removal", "unchecked" })
 public class WorldState implements AutoCloseable
 {
+	/**
+	 * Is closed
+	*/
 	private boolean _closed = false;
 
-	// Do not direct access, copy first
+	/**
+	 * Do not direct access, copy first
+	*/
 	private CoreBuild[] _cores = null;
 
-	// Copies game data to internal storage
+	/**
+	 * Interacts with game data in main game thread
+	*/
 	private final Cons<?> _updater = e -> MainGameThreadUpdate();
 
-	// Used to check if close invoked in same thread as constructor
-	// assuming constructor was invoked in main game thread
+	/**
+	 * Used to check if close invoked in same thread as constructor; assuming constructor was invoked in main game thread
+	*/
 	private final long _threadID = Thread.currentThread().getId();
 
+	/**
+	 * Building validation map height
+	*/
 	public final int Height;
 
+	/**
+	 * Building validation map width
+	*/
 	public final int Width;
 
+	/**
+	 * Building validation map size
+	*/
 	public final int Size;
 
+	/**
+	 * Building validation map
+	*/
 	public final boolean[] Map;
 
+	/**
+	 * Main game thread must expect not null. Not main game thread must expect null.
+	*/
+	public final AtomicReference<BuildPlan[]> BuildPlansMachinary = new AtomicReference<BuildPlan[]>(null);
+
+	/**
+	 * Do not direct access, copy first
+	*/
 	public BuildPlan[] BuildPlans = null;
 
-	// Better safe than sorry
+	/**
+	 * Better safe than sorry. Increases polygon borders between cores from 1 to 3. This is TILE term not UNIT (not x8).
+	*/
 	public boolean PolygonSafeZone = true;
 
-	// This is TILE term not UNIT (not x8)
+	/**
+	 * Better safe than sorry. Increases radius by given value. This is TILE term not UNIT (not x8).
+	*/
 	public float RadiusSafeZone = 1F;
 
+	/**
+	 * Interacts with game data in main game thread.
+	 * BuildPlansMachinary field is copied to player building plans.
+	 * Player building plans are copied to BuildPlans field.
+	 * Map cores are copied to _cores field.
+	*/
 	private void MainGameThreadUpdate()
 	{
-		Seq<TeamData> teams = Vars.state.teams.active;
-		Queue<BuildPlan> queue = Vars.player.unit().plans;
+		final Seq<TeamData> teams = Vars.state.teams.active;
+		final Queue<BuildPlan> queue = Vars.player.unit().plans;
+
+		// Need to change it to null so cmpxchg value to null
+		// If other thread already cmpxchg null to not null then do not care
+		final BuildPlan[] buildPlansMachinary = BuildPlansMachinary.get();
+		BuildPlansMachinary.compareAndSet(buildPlansMachinary, null);
+
+		final BuildPlan[] buildPlans = new BuildPlan[queue.size];
 
 		CoreBuild[] cores;
-		BuildPlan[] buildPlans = new BuildPlan[queue.size];
-
 		int count = 0;
+
+		if (buildPlansMachinary != null)
+			for (BuildPlan buildPlan : buildPlansMachinary)
+				queue.add(buildPlan);
 
 		for (BuildPlan buildPlan : queue)
 			buildPlans[count++] = buildPlan;
@@ -114,7 +162,7 @@ public class WorldState implements AutoCloseable
 	}
 
 	/**
-	INVOKE ONLY IN MAIN GAME THREAD
+	 * INVOKE ONLY IN MAIN GAME THREAD
 	 * @throws Exception ARC events reflection access error
 	*/
 	public WorldState(int height, int width) throws Exception
@@ -128,10 +176,10 @@ public class WorldState implements AutoCloseable
 		{
 			// Since there is no way to add enum-keyed listener to ARC event system without identity lost
 			// use reflection to direct access private field and add event listener
-			Field eventsField = Events.class.getDeclaredField("events");
+			final Field eventsField = Events.class.getDeclaredField("events");
 			eventsField.setAccessible(true);
 
-			ObjectMap<Object, Seq<Cons<?>>> events = (ObjectMap<Object, Seq<Cons<?>>>)eventsField.get(null);
+			final ObjectMap<Object, Seq<Cons<?>>> events = (ObjectMap<Object, Seq<Cons<?>>>)eventsField.get(null);
 			events.get(Trigger.update, () -> new Seq<>(Cons.class)).add(_updater);
 		}
 		catch (Exception e)
@@ -144,7 +192,7 @@ public class WorldState implements AutoCloseable
 	}
 
 	/**
-	INVOKE ONLY IN MAIN GAME THREAD
+	 * INVOKE ONLY IN MAIN GAME THREAD
 	 * @throws Exception ARC events reflection access error
 	*/
 	public WorldState(int height, int width, boolean polygonSZ, float radiusSZ) throws Exception
@@ -156,9 +204,9 @@ public class WorldState implements AutoCloseable
 	}
 
 	/**
-	Updates internal world state map. At fact this is ported version of {@link Build#validPlace} method
-	designed to run in a separate thread and optimized for processing the entire map efficiently.
-	It does not check ground units
+	 * Updates internal building validation map. At fact this is ported version of {@link Build#validPlace}
+	 * method designed to run in a separate thread and optimized for processing the entire map efficiently.
+	 * It does not check ground units
 	*/
 	public void UpdateMap()
 	{
@@ -173,54 +221,54 @@ public class WorldState implements AutoCloseable
 			throw new NullPointerException("Vars.world.tiles is null");
 		
 		final CoreBuild[] cores = _cores;
-		float tilesize = (float)Vars.tilesize;
+		final float tilesize = (float)Vars.tilesize;
 
 		if (cores == null)
 			throw new NullPointerException("WorldState.cores is null");
 
 		if (Vars.state.rules.polygonCoreProtection)
 		{
-			Vec2[] coresVec2s = new Vec2[cores.length];
+			final Vec2[] coresVec2s = new Vec2[cores.length];
 	
 			for (int i = 0; i < cores.length; ++i)
 				coresVec2s[i] = new Vec2(cores[i].x, cores[i].y);
 	
-			Seq<GraphEdge> edges = Voronoi.generate(coresVec2s, 0F, (float)Vars.world.unitWidth(), 0F, (float)Vars.world.unitHeight());
+			final Seq<GraphEdge> edges = Voronoi.generate(coresVec2s, 0F, (float)Vars.world.unitWidth(), 0F, (float)Vars.world.unitHeight());
 	
 			// Draw Bresenham line for each graph edge that is between enemy and player teams
 			for (GraphEdge edge : edges)
 				if (cores[edge.site1].team == team ^ cores[edge.site2].team == team)
 				{
 					float x1 = edge.x1;
-					float x2 = edge.x2;
-					
 					float y1 = edge.y1;
-					float y2 = edge.y2;
+					
+					final float x2 = edge.x2;
+					final float y2 = edge.y2;
 	
 					if (x1 == x2 && y1 == y2)
 						continue;
 	
-					float dx = Math.abs(x1 - x2);
-					float dy = Math.abs(y1 - y2);
+					final float dx = Math.abs(x1 - x2);
+					final float dy = Math.abs(y1 - y2);
 					
-					float sx = (x1 < x2) ? tilesize : -tilesize;
-					float sy = (y1 < y2) ? tilesize : -tilesize;
+					final float sx = (x1 < x2) ? tilesize : -tilesize;
+					final float sy = (y1 < y2) ? tilesize : -tilesize;
 					
-					int ix2 = Math.round(x2 / tilesize);
-					int iy2 = Math.round(y2 / tilesize);
+					final int ix2 = Math.round(x2 / tilesize);
+					final int iy2 = Math.round(y2 / tilesize);
 					
 					float error = dx - dy;
 					
 					while (true)
 					{
 						// Do you also hate 'to nearest even' rounding? Let's hate together
-						int ix1 = Math.round(x1 / tilesize);
-						int iy1 = Math.round(y1 / tilesize);
+						final int ix1 = Math.round(x1 / tilesize);
+						final int iy1 = Math.round(y1 / tilesize);
 	
 						if (ix1 < 0 || iy1 < 0 || ix1 >= Width || iy1 >= Height)
 							break;
 						
-						int i = ix1 + iy1 * Width;
+						final int i = ix1 + iy1 * Width;
 						Map[i] = true;
 	
 						if (PolygonSafeZone)
@@ -241,7 +289,7 @@ public class WorldState implements AutoCloseable
 						if ((sx >= 0F ? ix1 >= ix2 : ix1 <= ix2) && (sy >= 0F ? iy1 >= iy2 : iy1 <= iy2))
 							break;
 						
-						float errorEx = error * 2F;
+						final float errorEx = error * 2F;
 						
 						if (errorEx > -dy)
 						{
@@ -256,6 +304,8 @@ public class WorldState implements AutoCloseable
 						}
 					}
 				}
+
+			final ArrayList<Point> queue = new ArrayList<Point>(Size);
 	
 			// Fill between enemy cores and enemy-player graph edges
 			for (CoreBuild core : cores)
@@ -265,13 +315,12 @@ public class WorldState implements AutoCloseable
 					int y = Math.round(core.y / tilesize);
 					int i = x + y * Width;
 	
-					ArrayList<Point> queue = new ArrayList<Point>(Size);
 					queue.add(new Point(x, y, i));
 	
 					// Yes I hate recursion
 					while (queue.size() != 0)
 					{
-						Point point = queue.remove(queue.size() - 1);
+						final Point point = queue.remove(queue.size() - 1);
 	
 						x = point.x;
 						y = point.y;
@@ -291,19 +340,19 @@ public class WorldState implements AutoCloseable
 		}
 		else
 		{
-			float tileRadius = Vars.state.rules.enemyCoreBuildRadius + RadiusSafeZone * tilesize + tilesize;
-			float tileRadiusSquare = tileRadius * tileRadius;
+			final float tileRadius = Vars.state.rules.enemyCoreBuildRadius + RadiusSafeZone * tilesize + tilesize;
+			final float tileRadiusSquare = tileRadius * tileRadius;
 
 			for (CoreBuild core : cores)
 				if (core.team != team)
 				{
-					int xMax = Math.min((int)Math.floor((core.x + tileRadius) / tilesize), Width - 1);
-					int xMin = Math.max((int)Math.ceil((core.x - tileRadius) / tilesize), 0);
+					final int xMax = Math.min((int)Math.floor((core.x + tileRadius) / tilesize), Width - 1);
+					final int xMin = Math.max((int)Math.ceil((core.x - tileRadius) / tilesize), 0);
 	
-					int yMax = Math.min((int)Math.floor((core.y + tileRadius) / tilesize), Height - 1);
-					int yMin = Math.max((int)Math.ceil((core.y - tileRadius) / tilesize), 0);
+					final int yMax = Math.min((int)Math.floor((core.y + tileRadius) / tilesize), Height - 1);
+					final int yMin = Math.max((int)Math.ceil((core.y - tileRadius) / tilesize), 0);
 	
-					int step = Width + xMin - xMax - 1;
+					final int step = Width + xMin - xMax - 1;
 	
 					// Yes I do not use float as loop counter
 					for (int y = yMin, i = xMin + yMin * Width; y <= yMax; ++y, i += step)
@@ -316,7 +365,7 @@ public class WorldState implements AutoCloseable
 		if (Vars.state.rules.placeRangeCheck)
 		{
 			// Do not ask why slag incinerator
-			float tileRadiusEx = Blocks.slagIncinerator.placeOverlapRange + RadiusSafeZone * tilesize + 4F;
+			final float tileRadiusEx = Blocks.slagIncinerator.placeOverlapRange + RadiusSafeZone * tilesize + 4F;
 
 			for (int ii = 0; ii < Size; ++ii)
 			{
@@ -327,16 +376,16 @@ public class WorldState implements AutoCloseable
 				if (build == null || build.team == team || build.tile != tile)
 					continue;
 	
-				float tileRadius = tileRadiusEx + build.hitSize() / 2F;
-				float tileRadiusSquare = tileRadius * tileRadius;
+				final float tileRadius = tileRadiusEx + build.hitSize() / 2F;
+				final float tileRadiusSquare = tileRadius * tileRadius;
 	
-				int xMax = Math.min((int)Math.floor((build.x + tileRadius) / tilesize), Width - 1);
-				int xMin = Math.max((int)Math.ceil((build.x - tileRadius) / tilesize), 0);
+				final int xMax = Math.min((int)Math.floor((build.x + tileRadius) / tilesize), Width - 1);
+				final int xMin = Math.max((int)Math.ceil((build.x - tileRadius) / tilesize), 0);
 	
-				int yMax = Math.min((int)Math.floor((build.y + tileRadius) / tilesize), Height - 1);
-				int yMin = Math.max((int)Math.ceil((build.y - tileRadius) / tilesize), 0);
+				final int yMax = Math.min((int)Math.floor((build.y + tileRadius) / tilesize), Height - 1);
+				final int yMin = Math.max((int)Math.ceil((build.y - tileRadius) / tilesize), 0);
 	
-				int step = Width + xMin - xMax - 1;
+				final int step = Width + xMin - xMax - 1;
 	
 				// Yes I do not use float as loop counter
 				for (int y = yMin, i = xMin + yMin * Width; y <= yMax; ++y, i += step)
@@ -361,7 +410,7 @@ public class WorldState implements AutoCloseable
 	}
 
 	/**
-	INVOKE ONLY IN MAIN GAME THREAD
+	 * INVOKE ONLY IN MAIN GAME THREAD
 	 * @throws Exception ARC events reflection access error
 	*/
 	@Override
@@ -369,17 +418,18 @@ public class WorldState implements AutoCloseable
 	{
 		if (!_closed)
 		{
+			// Print warning because close might be silently invoked by garbage collector
 			if (_threadID != Thread.currentThread().getId())
-				System.err.println("ValidPlace: constructor's and close's threads ids do not match");
+				System.err.println("WorldState: constructor's and close's threads ids do not match");
 
 			try
 			{
 				// Since there is no way to remove enum-keyed listener from ARC event system
 				// use reflection to direct access private field and remove event listener
-				Field eventsField = Events.class.getDeclaredField("events");
+				final Field eventsField = Events.class.getDeclaredField("events");
 				eventsField.setAccessible(true);
 
-				ObjectMap<Object, Seq<Cons<?>>> events = (ObjectMap<Object, Seq<Cons<?>>>)eventsField.get(null);
+				final ObjectMap<Object, Seq<Cons<?>>> events = (ObjectMap<Object, Seq<Cons<?>>>)eventsField.get(null);
 				events.get(Trigger.update, () -> new Seq<>(Cons.class)).remove(_updater);
 			}
 			catch (Exception e)
