@@ -99,17 +99,17 @@ public class SolidPathFinder
 	private static final byte PROTECT = (byte)0;
 
 	/**
-	 * Can through with bridge or duct, another bridge heading to this tile, items output nearby
+	 * Can through with bridge or duct; another bridge heading to this tile; items output nearby
 	*/
 	private static final byte COLLIDE = (byte)1;
 
 	/**
-	 * Can through with bridge or duct, another bridge heading to this tile
+	 * Can through with bridge or duct; another bridge heading to this tile
 	*/
 	private static final byte DAMAGE = (byte)2;
 
 	/**
-	 * Can through with bridge or duct, items output nearby
+	 * Can through with bridge or duct; items output nearby
 	*/
 	private static final byte DANGER = (byte)3;
 
@@ -291,9 +291,6 @@ public class SolidPathFinder
 				if (x1 + 2 < _width && !pMap[right_2_1] && (!rMap[right_2_4 + RIGHT] || !rMap[right_2_4 + UPPER]
 					|| !rMap[right_2_4 + BOTTOM]) && _map[right_2_1] != COLLIDE && _map[right_2_1] != DAMAGE)
 				{
-					if (_map[right_2_1] == PROTECT)
-						return false;
-
 					final int distance = Math.abs((x1 + 2) - x2) + Math.abs(y1 - y2);
 
 					if (pathNode.r > distance)
@@ -306,7 +303,8 @@ public class SolidPathFinder
 				else if (x1 + 3 < _width && !pMap[right_3_1] && (!rMap[right_3_4 + RIGHT] || !rMap[right_3_4 + UPPER]
 					|| !rMap[right_3_4 + BOTTOM]) && _map[right_3_1] != COLLIDE && _map[right_3_1] != DAMAGE)
 				{
-					if (_map[right_2_1] == PROTECT || _map[right_3_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[right_2_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs((x1 + 3) - x2) + Math.abs(y1 - y2);
@@ -321,7 +319,8 @@ public class SolidPathFinder
 				else if (x1 + 4 < _width && !pMap[right_4_1] && (!rMap[right_4_4 + RIGHT] || !rMap[right_4_4 + UPPER]
 					|| !rMap[right_4_4 + BOTTOM]) && _map[right_4_1] != COLLIDE && _map[right_4_1] != DAMAGE)
 				{
-					if (_map[right_2_1] == PROTECT || _map[right_3_1] == PROTECT || _map[right_4_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[right_2_1] == PROTECT || _map[right_3_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs((x1 + 4) - x2) + Math.abs(y1 - y2);
@@ -479,9 +478,6 @@ public class SolidPathFinder
 				if (y1 + 2 < _height && !pMap[upper_2_1] && (!rMap[upper_2_4 + UPPER] || !rMap[upper_2_4 + RIGHT]
 					|| !rMap[upper_2_4 + LEFT]) && _map[upper_2_1] != COLLIDE && _map[upper_2_1] != DAMAGE)
 				{
-					if (_map[upper_2_1] == PROTECT)
-						return false;
-
 					final int distance = Math.abs(x1 - x2) + Math.abs((y1 + 2) - y2);
 
 					if (pathNode.r > distance)
@@ -494,7 +490,8 @@ public class SolidPathFinder
 				else if (y1 + 3 < _height && !pMap[upper_3_1] && (!rMap[upper_3_4 + UPPER] || !rMap[upper_3_4 + RIGHT]
 					|| !rMap[upper_3_4 + LEFT]) && _map[upper_3_1] != COLLIDE && _map[upper_3_1] != DAMAGE)
 				{
-					if (_map[upper_2_1] == PROTECT || _map[upper_3_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[upper_2_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs(x1 - x2) + Math.abs((y1 + 3) - y2);
@@ -509,7 +506,8 @@ public class SolidPathFinder
 				else if (y1 + 4 < _height && !pMap[upper_4_1] && (!rMap[upper_4_4 + UPPER] || !rMap[upper_4_4 + RIGHT]
 					|| !rMap[upper_4_4 + LEFT]) && _map[upper_4_1] != COLLIDE && _map[upper_4_1] != DAMAGE)
 				{
-					if (_map[upper_2_1] == PROTECT || _map[upper_3_1] == PROTECT || _map[upper_4_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[upper_2_1] == PROTECT || _map[upper_3_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs(x1 - x2) + Math.abs((y1 + 4) - y2);
@@ -665,9 +663,6 @@ public class SolidPathFinder
 				if (x1 - 2 >= 0 && !pMap[left_2_1] && (!rMap[left_2_4 + LEFT] || !rMap[left_2_4 + UPPER]
 					|| !rMap[left_2_4 + BOTTOM]) && _map[left_2_1] != COLLIDE && _map[left_2_1] != DAMAGE)
 				{
-					if (_map[left_2_1] == PROTECT)
-						return false;
-
 					final int distance = Math.abs((x1 - 2) - x2) + Math.abs(y1 - y2);
 
 					if (pathNode.r > distance)
@@ -680,7 +675,8 @@ public class SolidPathFinder
 				else if (x1 - 3 >= 0 && !pMap[left_3_1] && (!rMap[left_3_4 + LEFT] || !rMap[left_3_4 + UPPER]
 					|| !rMap[left_3_4 + BOTTOM]) && _map[left_3_1] != COLLIDE && _map[left_3_1] != DAMAGE)
 				{
-					if (_map[left_2_1] == PROTECT || _map[left_3_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[left_2_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs((x1 - 3) - x2) + Math.abs(y1 - y2);
@@ -695,7 +691,8 @@ public class SolidPathFinder
 				else if (x1 - 4 >= 0 && !pMap[left_4_1] && (!rMap[left_4_4 + LEFT] || !rMap[left_4_4 + UPPER]
 					|| !rMap[left_4_4 + BOTTOM]) && _map[left_4_1] != COLLIDE && _map[left_4_1] != DAMAGE)
 				{
-					if (_map[left_2_1] == PROTECT || _map[left_3_1] == PROTECT || _map[left_4_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[left_2_1] == PROTECT || _map[left_3_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs((x1 - 4) - x2) + Math.abs(y1 - y2);
@@ -853,9 +850,6 @@ public class SolidPathFinder
 				if (y1 - 2 >= 0 && !pMap[bottom_2_1] && (!rMap[bottom_2_4 + BOTTOM] || !rMap[bottom_2_4 + RIGHT]
 					|| !rMap[bottom_2_4 + LEFT]) && _map[bottom_2_1] != COLLIDE && _map[bottom_2_1] != DAMAGE)
 				{
-					if (_map[bottom_2_1] == PROTECT)
-						return false;
-
 					final int distance = Math.abs(x1 - x2) + Math.abs((y1 - 2) - y2);
 
 					if (pathNode.r > distance)
@@ -868,7 +862,8 @@ public class SolidPathFinder
 				else if (y1 - 3 >= 0 && !pMap[bottom_3_1] && (!rMap[bottom_3_4 + BOTTOM] || !rMap[bottom_3_4 + RIGHT]
 					|| !rMap[bottom_3_4 + LEFT]) && _map[bottom_3_1] != COLLIDE && _map[bottom_3_1] != DAMAGE)
 				{
-					if (_map[bottom_2_1] == PROTECT || _map[bottom_3_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[bottom_2_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs(x1 - x2) + Math.abs((y1 - 3) - y2);
@@ -883,7 +878,8 @@ public class SolidPathFinder
 				else if (y1 - 4 >= 0 && !pMap[bottom_4_1] && (!rMap[bottom_4_4 + BOTTOM] || !rMap[bottom_4_4 + RIGHT]
 					|| !rMap[bottom_4_4 + LEFT]) && _map[bottom_4_1] != COLLIDE && _map[bottom_4_1] != DAMAGE)
 				{
-					if (_map[bottom_2_1] == PROTECT || _map[bottom_3_1] == PROTECT || _map[bottom_4_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[bottom_2_1] == PROTECT || _map[bottom_3_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs(x1 - x2) + Math.abs((y1 - 4) - y2);
@@ -922,16 +918,18 @@ public class SolidPathFinder
 				for (int j = x_beg, k = i_beg; j <= x_end; ++j, ++k)
 					if (j < _width)
 					{
-						if (_map[k] != PROTECT)
+						if (_map[k] == PROTECT)
+							return;
+						else
 						{
 							if (_map[k] == EMPTY)
 								_map[k] = DAMAGE;
 							else if (_map[k] == DANGER)
 								_map[k] = COLLIDE;
 						}
-						else
-							return;
 					}
+					else
+						break;
 
 				// Bridge outputs even to armored duct so make block there since it is end-chain bridge
 				if (x_beg < _width)
@@ -949,16 +947,18 @@ public class SolidPathFinder
 				for (int j = y_beg, k = i_beg; j <= y_end; ++j, k += _width)
 					if (j < _height)
 					{
-						if (_map[k] != PROTECT)
+						if (_map[k] == PROTECT)
+							return;
+						else
 						{
 							if (_map[k] == EMPTY)
 								_map[k] = DAMAGE;
 							else if (_map[k] == DANGER)
 								_map[k] = COLLIDE;
 						}
-						else
-							return;
 					}
+					else
+						break;
 
 				// Bridge outputs even to armored duct so make block there since it is end-chain bridge
 				if (y_beg < _height)
@@ -976,16 +976,18 @@ public class SolidPathFinder
 				for (int j = x_beg, k = i_beg; j >= x_end; --j, --k)
 					if (j >= 0)
 					{
-						if (_map[k] != PROTECT)
+						if (_map[k] == PROTECT)
+							return;
+						else
 						{
 							if (_map[k] == EMPTY)
 								_map[k] = DAMAGE;
 							else if (_map[k] == DANGER)
 								_map[k] = COLLIDE;
 						}
-						else
-							return;
 					}
+					else
+						break;
 
 				// Bridge outputs even to armored duct so make block there since it is end-chain bridge
 				if (x_beg >= 0)
@@ -1003,16 +1005,18 @@ public class SolidPathFinder
 				for (int j = y_beg, k = i_beg; j >= y_end; --j, k -= _width)
 					if (j >= 0)
 					{
-						if (_map[k] != PROTECT)
+						if (_map[k] == PROTECT)
+							return;
+						else
 						{
 							if (_map[k] == EMPTY)
 								_map[k] = DAMAGE;
 							else if (_map[k] == DANGER)
 								_map[k] = COLLIDE;
 						}
-						else
-							return;
 					}
+					else
+						break;
 
 				// Bridge outputs even to armored duct so make block there since it is end-chain bridge
 				if (y_beg >= 0)
@@ -1255,6 +1259,15 @@ public class SolidPathFinder
 			this.y = y;
 			this.i = i;
 		}
+
+		public PathNode(PathNode o)
+		{
+			r = o.r;
+			s = o.s;
+			x = o.x;
+			y = o.y;
+			i = o.i;
+		}
 	}
 
 	public SolidPathFinder(int height, int width)
@@ -1275,7 +1288,7 @@ public class SolidPathFinder
 
 	/**
 	 * Builds path for solid resources using bridges and (armored) ducts
-	 * @return           - List of building plans if success, null if failure
+	 * @return             List of building plans if success, null if failure
 	 * @param tile1      - First tile of the path (starting coordinates)
 	 * @param tile2      - Tile after the last tile of the path (destination coordinates)
 	 * @param targetMode - Determines whether to keep target/previous direction settings
@@ -1287,7 +1300,7 @@ public class SolidPathFinder
 
 	/**
 	 * Builds path for solid resources using bridges and (armored) ducts
-	 * @return           - List of building plans if success, null if failure
+	 * @return             List of building plans if success, null if failure
 	 * @param x1         - First tile of the path (starting coordinate)
 	 * @param y1         - First tile of the path (starting coordinate)
 	 * @param x2         - Tile after the last tile of the path (destination coordinate)
@@ -1301,7 +1314,7 @@ public class SolidPathFinder
 
 	/**
 	 * Builds path for solid resources using bridges and (armored) ducts
-	 * @return           - List of building plans if success, null if failure
+	 * @return             List of building plans if success, null if failure
 	 * @param tile1      - First tile of the path (starting coordinates)
 	 * @param tile2      - Tile after the last tile of the path (destination coordinates)
 	 * @param targetMode - Determines whether to keep target/previous direction settings
@@ -1316,7 +1329,7 @@ public class SolidPathFinder
 
 	/**
 	 * Builds path for solid resources using bridges and (armored) ducts
-	 * @return           - List of building plans if success, null if failure
+	 * @return             List of building plans if success, null if failure
 	 * @param x1         - First tile of the path (starting coordinate)
 	 * @param y1         - First tile of the path (starting coordinate)
 	 * @param x2         - Tile after the last tile of the path (destination coordinate)
@@ -1401,7 +1414,7 @@ public class SolidPathFinder
 
 		/**
 	 	 * Path nodes rotation map: ([RIGHT][UPPER][LEFT][BOTTOM]).
-		 * Does not invert when get to previous position so this map prevents from stucking in dead-end.
+		 * Does not invert when get to previous position so this map prevents from stucking in dead-end
 		 * but lets algorithm to check different rotations of same path (very specific need case).
 		*/
 		final boolean[] rMap = new boolean[_size * 4];
@@ -1523,7 +1536,7 @@ public class SolidPathFinder
 
 			// Rotate last tile in target direction but not against previous
 			// Special case for last tile to prevent building lone bridge in front of target
-			// Also general algorithm would not place duct heading to bridge or block
+			// Also general algorithm would not place bridge or duct heading to bridge or block
 			if (Math.abs(dx) + Math.abs(dy) == 1)
 			{
 				if (dx == -1)
@@ -1699,7 +1712,7 @@ public class SolidPathFinder
 			// PathNode stores coordinates in x, y fields
 			// 
 			// mStep is stored in PathNode s field during evaluations
-			final PathNode pathNode = new PathNode(_height + _width, mStep, x1, y1, idx);
+			PathNode pathNode = new PathNode(_height + _width, mStep, x1, y1, idx);
 
 			// Reset path node index
 			iMap[idx] = -1;
@@ -2325,10 +2338,12 @@ public class SolidPathFinder
 		for (int i = 0; i < _size; ++i)
 		{
 			final Tile tile = tiles.geti(i);
+			final Block block = tile.block();
+			final Building build = tile.build;
 
 			if (map[i])
 			{
-				if (tile.block() == Blocks.ductBridge && tile.build != null && tile.build.team == team)
+				if (block == Blocks.ductBridge && build != null && build.team == team)
 					_map[i] = PROTECT;
 				else
 					_map[i] = BLOCK;

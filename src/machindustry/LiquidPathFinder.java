@@ -39,7 +39,7 @@
 // Collide = damage && danger
 
 // Invisible system:
-// Every conduit is invisible
+// Every conduit and junction are invisible
 
 // Protect system:
 // Every bridge base (base only) tile is protect
@@ -102,32 +102,32 @@ public class LiquidPathFinder
     private static final byte INVISIBLE = (byte)-1;
 
 	/**
-	 * Can not through with bridge or conduit
+	 * Can not through with bridge, conduit or junction
 	*/
 	private static final byte PROTECT = (byte)0;
 
 	/**
-	 * Can through with bridge or conduit, another bridge heading to this tile, liquids output nearby
+	 * Can through with bridge, conduit or junction; another bridge heading to this tile; liquids output nearby
 	*/
 	private static final byte COLLIDE = (byte)1;
 
 	/**
-	 * Can through with bridge or conduit, another bridge heading to this tile
+	 * Can through with bridge, conduit or junction; another bridge heading to this tile
 	*/
 	private static final byte DAMAGE = (byte)2;
 
 	/**
-	 * Can through with bridge or conduit, liquids output nearby
+	 * Can through with bridge, conduit or junction; liquids output nearby
 	*/
 	private static final byte DANGER = (byte)3;
 
 	/**
-	 * Can through with bridge but not conduit
+	 * Can through with bridge but not conduit or junction
 	*/
 	private static final byte BLOCK = (byte)4;
 
 	/**
-	 * Can through with bridge or conduit
+	 * Can through with bridge, conduit or junction
 	*/
 	private static final byte EMPTY = (byte)5;
 
@@ -184,9 +184,9 @@ public class LiquidPathFinder
 		final int pStep
 	)
 	{
-		// Check bMap to prevent mixing items due to mid- and end-chain bridges input rules difference
+		// Check bMap to prevent mixing liquids due to mid- and end-chain bridges input rules difference
 		// Check iMap to prevent bridge loops and bridge opposite rotations
-		// Check oMap to prevent mixing items due to unforseen input
+		// Check oMap to prevent mixing liquids due to unforseen input
 		// Check pMap to prevent path nodes collision
 		// Check rMap to prevent stucking in dead-end
 		if (x1 + 1 < _width)
@@ -210,7 +210,7 @@ public class LiquidPathFinder
 			// Evaluate bridges only if there is block ahead to prevent full-bridge paths
 			if (!pMap[right_1_1] && (!rMap[right_1_4 + RIGHT] || !rMap[right_1_4 + UPPER] || !rMap[right_1_4 + BOTTOM]) && (pStep <= 1 || bMap[idx] == 0))
 			{
-				// Check if items output block is behind
+				// Check if liquids output block is behind
 				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && x1 - 1 >= 0 && oMap[left_1_1])
 					return false;
@@ -272,11 +272,11 @@ public class LiquidPathFinder
 			}
 			else if (bMap[idx] == 0 && _map[right_1_1] != PROTECT)
 			{
-				// Check another bridge heading to this tile
-				if (_map[idx] == COLLIDE || _map[idx] == DAMAGE)
+				// Check this tile is invsible or another bridge heading to this tile
+				if (_map[idx] == INVISIBLE || _map[idx] == COLLIDE || _map[idx] == DAMAGE)
 					return false;
 
-				// Check if items output block is nearby
+				// Check if liquids output block is nearby
 				if (_map[idx] == DANGER)
 				{
 					// Bridges do not accept input from sides where another bridges connected
@@ -295,13 +295,10 @@ public class LiquidPathFinder
 						return false;
 				}
 
-				// Check if bridge ahead is under damage
-				if (x1 + 2 < _width && !pMap[right_2_1] && (!rMap[right_2_4 + RIGHT] || !rMap[right_2_4 + UPPER]
-					|| !rMap[right_2_4 + BOTTOM]) && _map[right_2_1] != COLLIDE && _map[right_2_1] != DAMAGE)
+				// Check if bridge ahead is invisible or under damage
+				if (x1 + 2 < _width && !pMap[right_2_1] && (!rMap[right_2_4 + RIGHT] || !rMap[right_2_4 + UPPER] || !rMap[right_2_4 + BOTTOM])
+					&& _map[right_2_1] != INVISIBLE && _map[right_2_1] != COLLIDE && _map[right_2_1] != DAMAGE)
 				{
-					if (_map[right_2_1] == PROTECT)
-						return false;
-
 					final int distance = Math.abs((x1 + 2) - x2) + Math.abs(y1 - y2);
 
 					if (pathNode.r > distance)
@@ -311,10 +308,11 @@ public class LiquidPathFinder
 						return true;
 					}
 				}
-				else if (x1 + 3 < _width && !pMap[right_3_1] && (!rMap[right_3_4 + RIGHT] || !rMap[right_3_4 + UPPER]
-					|| !rMap[right_3_4 + BOTTOM]) && _map[right_3_1] != COLLIDE && _map[right_3_1] != DAMAGE)
+				else if (x1 + 3 < _width && !pMap[right_3_1] && (!rMap[right_3_4 + RIGHT] || !rMap[right_3_4 + UPPER] || !rMap[right_3_4 + BOTTOM])
+					&& _map[right_3_1] != INVISIBLE && _map[right_3_1] != COLLIDE && _map[right_3_1] != DAMAGE)
 				{
-					if (_map[right_2_1] == PROTECT || _map[right_3_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[right_2_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs((x1 + 3) - x2) + Math.abs(y1 - y2);
@@ -326,10 +324,11 @@ public class LiquidPathFinder
 						return true;
 					}
 				}
-				else if (x1 + 4 < _width && !pMap[right_4_1] && (!rMap[right_4_4 + RIGHT] || !rMap[right_4_4 + UPPER]
-					|| !rMap[right_4_4 + BOTTOM]) && _map[right_4_1] != COLLIDE && _map[right_4_1] != DAMAGE)
+				else if (x1 + 4 < _width && !pMap[right_4_1] && (!rMap[right_4_4 + RIGHT] || !rMap[right_4_4 + UPPER] || !rMap[right_4_4 + BOTTOM])
+					&& _map[right_4_1] != INVISIBLE && _map[right_4_1] != COLLIDE && _map[right_4_1] != DAMAGE)
 				{
-					if (_map[right_2_1] == PROTECT || _map[right_3_1] == PROTECT || _map[right_4_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[right_2_1] == PROTECT || _map[right_3_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs((x1 + 4) - x2) + Math.abs(y1 - y2);
@@ -370,9 +369,9 @@ public class LiquidPathFinder
 		final int pStep
 	)
 	{
-		// Check bMap to prevent mixing items due to mid- and end-chain bridges input rules difference
+		// Check bMap to prevent mixing liquids due to mid- and end-chain bridges input rules difference
 		// Check iMap to prevent bridge loops and bridge opposite rotations
-		// Check oMap to prevent mixing items due to unforseen input
+		// Check oMap to prevent mixing liquids due to unforseen input
 		// Check pMap to prevent path nodes collision
 		// Check rMap to prevent stucking in dead-end
 		if (y1 + 1 < _height)
@@ -398,7 +397,7 @@ public class LiquidPathFinder
 			// Evaluate bridges only if there is block ahead to prevent full-bridge paths
 			if (!pMap[upper_1_1] && (!rMap[upper_1_4 + UPPER] || !rMap[upper_1_4 + RIGHT] || !rMap[upper_1_4 + LEFT]) && (pStep <= 1 || bMap[idx] == 0))
 			{
-				// Check if items output block is behind
+				// Check if liquids output block is behind
 				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && y1 - 1 >= 0 && oMap[bottom_1_1])
 					return false;
@@ -460,11 +459,11 @@ public class LiquidPathFinder
 			}
 			else if (bMap[idx] == 0 && _map[upper_1_1] != PROTECT)
 			{
-				// Check another bridge heading to this tile
-				if (_map[idx] == COLLIDE || _map[idx] == DAMAGE)
+				// Check this tile is invsible or another bridge heading to this tile
+				if (_map[idx] == INVISIBLE || _map[idx] == COLLIDE || _map[idx] == DAMAGE)
 					return false;
 
-				// Check if items output block is nearby
+				// Check if liquids output block is nearby
 				if (_map[idx] == DANGER)
 				{
 					// Bridges do not accept input from sides where another bridges connected
@@ -483,13 +482,10 @@ public class LiquidPathFinder
 						return false;
 				}
 
-				// Check if bridge ahead is under damage
-				if (y1 + 2 < _height && !pMap[upper_2_1] && (!rMap[upper_2_4 + UPPER] || !rMap[upper_2_4 + RIGHT]
-					|| !rMap[upper_2_4 + LEFT]) && _map[upper_2_1] != COLLIDE && _map[upper_2_1] != DAMAGE)
+				// Check if bridge ahead is invisible or under damage
+				if (y1 + 2 < _height && !pMap[upper_2_1] && (!rMap[upper_2_4 + UPPER] || !rMap[upper_2_4 + RIGHT] || !rMap[upper_2_4 + LEFT])
+					&& _map[upper_2_1] != INVISIBLE && _map[upper_2_1] != COLLIDE && _map[upper_2_1] != DAMAGE)
 				{
-					if (_map[upper_2_1] == PROTECT)
-						return false;
-
 					final int distance = Math.abs(x1 - x2) + Math.abs((y1 + 2) - y2);
 
 					if (pathNode.r > distance)
@@ -499,10 +495,11 @@ public class LiquidPathFinder
 						return true;
 					}
 				}
-				else if (y1 + 3 < _height && !pMap[upper_3_1] && (!rMap[upper_3_4 + UPPER] || !rMap[upper_3_4 + RIGHT]
-					|| !rMap[upper_3_4 + LEFT]) && _map[upper_3_1] != COLLIDE && _map[upper_3_1] != DAMAGE)
+				else if (y1 + 3 < _height && !pMap[upper_3_1] && (!rMap[upper_3_4 + UPPER] || !rMap[upper_3_4 + RIGHT] || !rMap[upper_3_4 + LEFT])
+					&& _map[upper_3_1] != INVISIBLE && _map[upper_3_1] != COLLIDE && _map[upper_3_1] != DAMAGE)
 				{
-					if (_map[upper_2_1] == PROTECT || _map[upper_3_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[upper_2_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs(x1 - x2) + Math.abs((y1 + 3) - y2);
@@ -514,10 +511,11 @@ public class LiquidPathFinder
 						return true;
 					}
 				}
-				else if (y1 + 4 < _height && !pMap[upper_4_1] && (!rMap[upper_4_4 + UPPER] || !rMap[upper_4_4 + RIGHT]
-					|| !rMap[upper_4_4 + LEFT]) && _map[upper_4_1] != COLLIDE && _map[upper_4_1] != DAMAGE)
+				else if (y1 + 4 < _height && !pMap[upper_4_1] && (!rMap[upper_4_4 + UPPER] || !rMap[upper_4_4 + RIGHT] || !rMap[upper_4_4 + LEFT])
+					&& _map[upper_4_1] != INVISIBLE && _map[upper_4_1] != COLLIDE && _map[upper_4_1] != DAMAGE)
 				{
-					if (_map[upper_2_1] == PROTECT || _map[upper_3_1] == PROTECT || _map[upper_4_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[upper_2_1] == PROTECT || _map[upper_3_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs(x1 - x2) + Math.abs((y1 + 4) - y2);
@@ -558,9 +556,9 @@ public class LiquidPathFinder
 		final int pStep
 	)
 	{
-		// Check bMap to prevent mixing items due to mid- and end-chain bridges input rules difference
+		// Check bMap to prevent mixing liquids due to mid- and end-chain bridges input rules difference
 		// Check iMap to prevent bridge loops and bridge opposite rotations
-		// Check oMap to prevent mixing items due to unforseen input
+		// Check oMap to prevent mixing liquids due to unforseen input
 		// Check pMap to prevent path nodes collision
 		// Check rMap to prevent stucking in dead-end
 		if (x1 - 1 >= 0)
@@ -584,7 +582,7 @@ public class LiquidPathFinder
 			// Evaluate bridges only if there is block ahead to prevent full-bridge paths
 			if (!pMap[left_1_1] && (!rMap[left_1_4 + LEFT] || !rMap[left_1_4 + UPPER] || !rMap[left_1_4 + BOTTOM]) && (pStep <= 1 || bMap[idx] == 0))
 			{
-				// Check if items output block is behind
+				// Check if liquids output block is behind
 				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && x1 + 1 < _width && oMap[right_1_1])
 					return false;
@@ -646,11 +644,11 @@ public class LiquidPathFinder
 			}
 			else if (bMap[idx] == 0 && _map[left_1_1] != PROTECT)
 			{
-				// Check another bridge heading to this tile
-				if (_map[idx] == COLLIDE || _map[idx] == DAMAGE)
+				// Check this tile is invsible or another bridge heading to this tile
+				if (_map[idx] == INVISIBLE || _map[idx] == COLLIDE || _map[idx] == DAMAGE)
 					return false;
 
-				// Check if items output block is nearby
+				// Check if liquids output block is nearby
 				if (_map[idx] == DANGER)
 				{
 					// Bridges do not accept input from sides where another bridges connected
@@ -669,13 +667,10 @@ public class LiquidPathFinder
 						return false;
 				}
 
-				// Check if bridge ahead is under damage
-				if (x1 - 2 >= 0 && !pMap[left_2_1] && (!rMap[left_2_4 + LEFT] || !rMap[left_2_4 + UPPER]
-					|| !rMap[left_2_4 + BOTTOM]) && _map[left_2_1] != COLLIDE && _map[left_2_1] != DAMAGE)
+				// Check if bridge ahead is invisible or under damage
+				if (x1 - 2 >= 0 && !pMap[left_2_1] && (!rMap[left_2_4 + LEFT] || !rMap[left_2_4 + UPPER] || !rMap[left_2_4 + BOTTOM])
+					&& _map[left_2_1] != INVISIBLE && _map[left_2_1] != COLLIDE && _map[left_2_1] != DAMAGE)
 				{
-					if (_map[left_2_1] == PROTECT)
-						return false;
-
 					final int distance = Math.abs((x1 - 2) - x2) + Math.abs(y1 - y2);
 
 					if (pathNode.r > distance)
@@ -685,10 +680,11 @@ public class LiquidPathFinder
 						return true;
 					}
 				}
-				else if (x1 - 3 >= 0 && !pMap[left_3_1] && (!rMap[left_3_4 + LEFT] || !rMap[left_3_4 + UPPER]
-					|| !rMap[left_3_4 + BOTTOM]) && _map[left_3_1] != COLLIDE && _map[left_3_1] != DAMAGE)
+				else if (x1 - 3 >= 0 && !pMap[left_3_1] && (!rMap[left_3_4 + LEFT] || !rMap[left_3_4 + UPPER] || !rMap[left_3_4 + BOTTOM])
+					&& _map[left_3_1] != INVISIBLE && _map[left_3_1] != COLLIDE && _map[left_3_1] != DAMAGE)
 				{
-					if (_map[left_2_1] == PROTECT || _map[left_3_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[left_2_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs((x1 - 3) - x2) + Math.abs(y1 - y2);
@@ -700,10 +696,11 @@ public class LiquidPathFinder
 						return true;
 					}
 				}
-				else if (x1 - 4 >= 0 && !pMap[left_4_1] && (!rMap[left_4_4 + LEFT] || !rMap[left_4_4 + UPPER]
-					|| !rMap[left_4_4 + BOTTOM]) && _map[left_4_1] != COLLIDE && _map[left_4_1] != DAMAGE)
+				else if (x1 - 4 >= 0 && !pMap[left_4_1] && (!rMap[left_4_4 + LEFT] || !rMap[left_4_4 + UPPER] || !rMap[left_4_4 + BOTTOM])
+					&& _map[left_4_1] != INVISIBLE && _map[left_4_1] != COLLIDE && _map[left_4_1] != DAMAGE)
 				{
-					if (_map[left_2_1] == PROTECT || _map[left_3_1] == PROTECT || _map[left_4_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[left_2_1] == PROTECT || _map[left_3_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs((x1 - 4) - x2) + Math.abs(y1 - y2);
@@ -744,9 +741,9 @@ public class LiquidPathFinder
 		final int pStep
 	)
 	{
-		// Check bMap to prevent mixing items due to mid- and end-chain bridges input rules difference
+		// Check bMap to prevent mixing liquids due to mid- and end-chain bridges input rules difference
 		// Check iMap to prevent bridge loops and bridge opposite rotations
-		// Check oMap to prevent mixing items due to unforseen input
+		// Check oMap to prevent mixing liquids due to unforseen input
 		// Check pMap to prevent path nodes collision
 		// Check rMap to prevent stucking in dead-end
 		if (y1 - 1 >= 0)
@@ -772,7 +769,7 @@ public class LiquidPathFinder
 			// Evaluate bridges only if there is block ahead to prevent full-bridge paths
 			if (!pMap[bottom_1_1] && (!rMap[bottom_1_4 + BOTTOM] || !rMap[bottom_1_4 + RIGHT] || !rMap[bottom_1_4 + LEFT]) && (pStep <= 1 || bMap[idx] == 0))
 			{
-				// Check if items output block is behind
+				// Check if liquids output block is behind
 				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && y1 + 1 < _height && oMap[upper_1_1])
 					return false;
@@ -834,11 +831,11 @@ public class LiquidPathFinder
 			}
 			else if (bMap[idx] == 0 && _map[bottom_1_1] != PROTECT)
 			{
-				// Check another bridge heading to this tile
-				if (_map[idx] == COLLIDE || _map[idx] == DAMAGE)
+				// Check this tile is invsible or another bridge heading to this tile
+				if (_map[idx] == INVISIBLE || _map[idx] == COLLIDE || _map[idx] == DAMAGE)
 					return false;
 
-				// Check if items output block is nearby
+				// Check if liquids output block is nearby
 				if (_map[idx] == DANGER)
 				{
 					// Bridges do not accept input from sides where another bridges connected
@@ -857,13 +854,10 @@ public class LiquidPathFinder
 						return false;
 				}
 
-				// Check if bridge ahead is under damage
-				if (y1 - 2 >= 0 && !pMap[bottom_2_1] && (!rMap[bottom_2_4 + BOTTOM] || !rMap[bottom_2_4 + RIGHT]
-					|| !rMap[bottom_2_4 + LEFT]) && _map[bottom_2_1] != COLLIDE && _map[bottom_2_1] != DAMAGE)
+				// Check if bridge ahead is invisible or under damage
+				if (y1 - 2 >= 0 && !pMap[bottom_2_1] && (!rMap[bottom_2_4 + BOTTOM] || !rMap[bottom_2_4 + RIGHT] || !rMap[bottom_2_4 + LEFT])
+					&& _map[bottom_2_1] != INVISIBLE && _map[bottom_2_1] != COLLIDE && _map[bottom_2_1] != DAMAGE)
 				{
-					if (_map[bottom_2_1] == PROTECT)
-						return false;
-
 					final int distance = Math.abs(x1 - x2) + Math.abs((y1 - 2) - y2);
 
 					if (pathNode.r > distance)
@@ -873,10 +867,11 @@ public class LiquidPathFinder
 						return true;
 					}
 				}
-				else if (y1 - 3 >= 0 && !pMap[bottom_3_1] && (!rMap[bottom_3_4 + BOTTOM] || !rMap[bottom_3_4 + RIGHT]
-					|| !rMap[bottom_3_4 + LEFT]) && _map[bottom_3_1] != COLLIDE && _map[bottom_3_1] != DAMAGE)
+				else if (y1 - 3 >= 0 && !pMap[bottom_3_1] && (!rMap[bottom_3_4 + BOTTOM] || !rMap[bottom_3_4 + RIGHT] || !rMap[bottom_3_4 + LEFT])
+					&& _map[bottom_3_1] != INVISIBLE && _map[bottom_3_1] != COLLIDE && _map[bottom_3_1] != DAMAGE)
 				{
-					if (_map[bottom_2_1] == PROTECT || _map[bottom_3_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[bottom_2_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs(x1 - x2) + Math.abs((y1 - 3) - y2);
@@ -888,10 +883,11 @@ public class LiquidPathFinder
 						return true;
 					}
 				}
-				else if (y1 - 4 >= 0 && !pMap[bottom_4_1] && (!rMap[bottom_4_4 + BOTTOM] || !rMap[bottom_4_4 + RIGHT]
-					|| !rMap[bottom_4_4 + LEFT]) && _map[bottom_4_1] != COLLIDE && _map[bottom_4_1] != DAMAGE)
+				else if (y1 - 4 >= 0 && !pMap[bottom_4_1] && (!rMap[bottom_4_4 + BOTTOM] || !rMap[bottom_4_4 + RIGHT] || !rMap[bottom_4_4 + LEFT])
+					&& _map[bottom_4_1] != INVISIBLE && _map[bottom_4_1] != COLLIDE && _map[bottom_4_1] != DAMAGE)
 				{
-					if (_map[bottom_2_1] == PROTECT || _map[bottom_3_1] == PROTECT || _map[bottom_4_1] == PROTECT)
+					// Check if there is another bridge in between (1_1 check in above else if)
+					if (_map[bottom_2_1] == PROTECT || _map[bottom_3_1] == PROTECT)
 						return false;
 
 					final int distance = Math.abs(x1 - x2) + Math.abs((y1 - 4) - y2);
@@ -918,6 +914,9 @@ public class LiquidPathFinder
 	*/
 	private void ProcessProtect(final int r, final int x, final int y, final int i)
 	{
+		// About block ahead of end-chain bridge: I know can through there with junction but it will make
+		// pathing logic a lot more complicated because of junction side-effects so this case is ignored
+		// 
 		// Make tiles ahead of bridge damage
 		switch (r)
 		{
@@ -930,16 +929,18 @@ public class LiquidPathFinder
 				for (int j = x_beg, k = i_beg; j <= x_end; ++j, ++k)
 					if (j < _width)
 					{
-						if (_map[k] != PROTECT)
+						if (_map[k] == PROTECT)
+							return;
+						else
 						{
 							if (_map[k] == EMPTY)
 								_map[k] = DAMAGE;
 							else if (_map[k] == DANGER)
 								_map[k] = COLLIDE;
 						}
-						else
-							return;
 					}
+					else
+						break;
 
 				// Bridge outputs to conduit so make block there since it is end-chain bridge
 				if (x_beg < _width)
@@ -957,16 +958,18 @@ public class LiquidPathFinder
 				for (int j = y_beg, k = i_beg; j <= y_end; ++j, k += _width)
 					if (j < _height)
 					{
-						if (_map[k] != PROTECT)
+						if (_map[k] == PROTECT)
+							return;
+						else
 						{
 							if (_map[k] == EMPTY)
 								_map[k] = DAMAGE;
 							else if (_map[k] == DANGER)
 								_map[k] = COLLIDE;
 						}
-						else
-							return;
 					}
+					else
+						break;
 
 				// Bridge outputs to conduit so make block there since it is end-chain bridge
 				if (y_beg < _height)
@@ -984,16 +987,18 @@ public class LiquidPathFinder
 				for (int j = x_beg, k = i_beg; j >= x_end; --j, --k)
 					if (j >= 0)
 					{
-						if (_map[k] != PROTECT)
+						if (_map[k] == PROTECT)
+							return;
+						else
 						{
 							if (_map[k] == EMPTY)
 								_map[k] = DAMAGE;
 							else if (_map[k] == DANGER)
 								_map[k] = COLLIDE;
 						}
-						else
-							return;
 					}
+					else
+						break;
 
 				// Bridge outputs to conduit so make block there since it is end-chain bridge
 				if (x_beg >= 0)
@@ -1011,16 +1016,18 @@ public class LiquidPathFinder
 				for (int j = y_beg, k = i_beg; j >= y_end; --j, k -= _width)
 					if (j >= 0)
 					{
-						if (_map[k] != PROTECT)
+						if (_map[k] == PROTECT)
+							return;
+						else
 						{
 							if (_map[k] == EMPTY)
 								_map[k] = DAMAGE;
 							else if (_map[k] == DANGER)
 								_map[k] = COLLIDE;
 						}
-						else
-							return;
 					}
+					else
+						break;
 
 				// Bridge outputs to conduit so make block there since it is end-chain bridge
 				if (y_beg >= 0)
@@ -1044,6 +1051,9 @@ public class LiquidPathFinder
 	*/
 	private void ProcessBlock(final Block b, final int r, final int x, final int y, final int i)
 	{
+		// About block ahead of conduit and around junction: I know can through there with junction but it will
+		// make pathing logic a lot more complicated because of junction side-effects so this case is ignored
+		// 
 		// Conduit outputs to bridge and conduit so make block there
 		if (b == Blocks.reinforcedConduit)
 		{
@@ -1210,6 +1220,15 @@ public class LiquidPathFinder
 			this.y = y;
 			this.i = i;
 		}
+
+		public PathNode(PathNode o)
+		{
+			r = o.r;
+			s = o.s;
+			x = o.x;
+			y = o.y;
+			i = o.i;
+		}
 	}
 
 	public LiquidPathFinder(int height, int width)
@@ -1229,53 +1248,61 @@ public class LiquidPathFinder
 	}
 
 	/**
-	 * Builds path for solid resources using bridges and (armored) ducts
-	 * @return           - List of building plans if success, null if failure
+	 * Builds path for liquid resources using bridges, conduits and junctions
+	 * @return             List of building plans if success, null if failure
 	 * @param tile1      - First tile of the path (starting coordinates)
 	 * @param tile2      - Tile after the last tile of the path (destination coordinates)
+	 * @param mustRotate - Required rotation of first tile if it is conduit, -1 if any;
+	 *                     must not be any if first tile is invisible
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	*/
-	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, boolean targetMode)
+	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, int mustRotate, boolean targetMode)
 	{
-		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, targetMode, null, -1, -1, -1, -1);
+		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, mustRotate, targetMode, null, -1, -1, -1, -1);
 	}
 
 	/**
-	 * Builds path for solid resources using bridges and (armored) ducts
-	 * @return           - List of building plans if success, null if failure
+	 * Builds path for liquid resources using bridges, conduits and junctions
+	 * @return             List of building plans if success, null if failure
 	 * @param x1         - First tile of the path (starting coordinate)
 	 * @param y1         - First tile of the path (starting coordinate)
 	 * @param x2         - Tile after the last tile of the path (destination coordinate)
 	 * @param y2         - Tile after the last tile of the path (destination coordinate)
+	 * @param mustRotate - Required rotation of first tile if it is conduit, -1 if any;
+	 *                     must not be any if first tile is invisible
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	*/
-	public LinkedList<BuildPlan> BuildPath(int x1, int y1, int x2, int y2, boolean targetMode)
+	public LinkedList<BuildPlan> BuildPath(int x1, int y1, int x2, int y2, int mustRotate, boolean targetMode)
 	{
-		return BuildPath(x1, y1, x2, y2, targetMode, null, -1, -1, -1, -1);
+		return BuildPath(x1, y1, x2, y2, mustRotate, targetMode, null, -1, -1, -1, -1);
 	}
 
 	/**
-	 * Builds path for solid resources using bridges and (armored) ducts
-	 * @return           - List of building plans if success, null if failure
+	 * Builds path for liquid resources using bridges, conduits and junctions
+	 * @return             List of building plans if success, null if failure
 	 * @param tile1      - First tile of the path (starting coordinates)
 	 * @param tile2      - Tile after the last tile of the path (destination coordinates)
+	 * @param mustRotate - Required rotation of first tile if it is conduit, -1 if any;
+	 *                     must not be any if first tile is invisible
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	 * @param masks      - Boolean map that protects tiles from pathing
 	 * @param mtile      - Offset of the masks map from world origin (0, 0)
 	 * @param stile      - Sizes of the masks map
 	*/
-	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, boolean targetMode, boolean[] masks, Tile mtile, Tile stile)
+	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, int mustRotate, boolean targetMode, boolean[] masks, Tile mtile, Tile stile)
 	{
-		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, targetMode, masks, (int)mtile.x, (int)mtile.y, (int)stile.x, (int)stile.y);
+		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, mustRotate, targetMode, masks, (int)mtile.x, (int)mtile.y, (int)stile.x, (int)stile.y);
 	}
 
 	/**
-	 * Builds path for solid resources using bridges and (armored) ducts
-	 * @return           - List of building plans if success, null if failure
+	 * Builds path for liquid resources using bridges, conduits and junctions
+	 * @return             List of building plans if success, null if failure
 	 * @param x1         - First tile of the path (starting coordinate)
 	 * @param y1         - First tile of the path (starting coordinate)
 	 * @param x2         - Tile after the last tile of the path (destination coordinate)
 	 * @param y2         - Tile after the last tile of the path (destination coordinate)
+	 * @param mustRotate - Required rotation of first tile if it is conduit, -1 if any;
+	 *                     must not be any if first tile is invisible
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	 * @param masks      - Boolean map that protects tiles from pathing
 	 * @param mx         - Horizontal offset of the masks map from world origin (0, 0)
@@ -1289,6 +1316,7 @@ public class LiquidPathFinder
 		int y1,
 		final int x2,
 		final int y2,
+		final int mustRotate,
 		final boolean targetMode,
 		final boolean[] masks,
 		final int mx,
@@ -1356,7 +1384,7 @@ public class LiquidPathFinder
 
 		/**
 	 	 * Path nodes rotation map: ([RIGHT][UPPER][LEFT][BOTTOM]).
-		 * Does not invert when get to previous position so this map prevents from stucking in dead-end.
+		 * Does not invert when get to previous position so this map prevents from stucking in dead-end
 		 * but lets algorithm to check different rotations of same path (very specific need case).
 		*/
 		final boolean[] rMap = new boolean[_size * 4];
@@ -1405,8 +1433,9 @@ public class LiquidPathFinder
 		for (int i = 0, j = 0; i < _size; ++i, j += 4)
 		{
 			final Tile tile = tiles.geti(i);
+			final Block block = tile.block();
 
-			if (tile.block().outputsItems() && !tile.block().outputsPayload)
+			if (block.outputsLiquid)
 				oMap[i] = true;
 
 			if (_map[i] == PROTECT || _map[i] == BLOCK)
@@ -1442,6 +1471,8 @@ public class LiquidPathFinder
 		final int dRotate = pRotate;
 		final int dStep = pStep;
 
+		boolean firstAttempt = true;
+
 		// Path evaluation
 		// Yes I hate recursion
 		while (true)
@@ -1474,11 +1505,12 @@ public class LiquidPathFinder
 			int mRotate = -1;
 			int mStep = 0;
 
+			final boolean invisible = _map[idx] == INVISIBLE;
 			boolean drop = false;
 
 			// Rotate last tile in target direction but not against previous
 			// Special case for last tile to prevent building lone bridge in front of target
-			// Also general algorithm would not place duct heading to bridge or block
+			// Also general algorithm would not place bridge, conduit or junction heading to bridge or block
 			if (Math.abs(dx) + Math.abs(dy) == 1)
 			{
 				if (dx == -1)
@@ -1654,7 +1686,7 @@ public class LiquidPathFinder
 			// PathNode stores coordinates in x, y fields
 			// 
 			// mStep is stored in PathNode s field during evaluations
-			final PathNode pathNode = new PathNode(_height + _width, mStep, x1, y1, idx);
+			PathNode pathNode = new PathNode(_height + _width, mStep, x1, y1, idx);
 
 			// Reset path node index
 			iMap[idx] = -1;
@@ -1672,31 +1704,42 @@ public class LiquidPathFinder
 				{
 					if (targetMode)
 						for (int i = 0; i < 4; ++i)
+						{
+							PathNode tPathNode = new PathNode(pathNode);
+							int tRotate = mRotate;
+
 							switch (evaluateRotateOrder[i])
 							{
 								case RIGHT:
-									if (EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || mustRotate == RIGHT) && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = RIGHT;
 									break;
 
 								case UPPER:
-									if (EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || mustRotate == UPPER) && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = UPPER;
 									break;
 
 								case LEFT:
-									if (EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || mustRotate == LEFT) && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = LEFT;
 									break;
 
 								case BOTTOM:
-									if (EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || mustRotate == BOTTOM) && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = BOTTOM;
 									break;
 
 								default:
 									break;
 							}
+
+							if (mustRotate != -1 && pathNode.r != mustRotate && pathNode.s == 1)
+							{
+								pathNode = tPathNode;
+								mRotate = tRotate;
+							}
+						}
 					else
 					{
 						final int[] evaluateRotateOrderEx = new int[4];
@@ -1714,31 +1757,93 @@ public class LiquidPathFinder
 							evaluateRotateOrderEx[3] = evaluateRotateOrder[0] - 2;
 
 						for (int i = 0; i < 4; ++i)
+						{
+							PathNode tPathNode = new PathNode(pathNode);
+							int tRotate = mRotate;
+
 							switch (evaluateRotateOrderEx[i])
 							{
 								case RIGHT:
-									if (EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || mustRotate == RIGHT) && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = RIGHT;
 									break;
 
 								case UPPER:
-									if (EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || mustRotate == UPPER) && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = UPPER;
 									break;
 
 								case LEFT:
-									if (EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || mustRotate == LEFT) && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = LEFT;
 									break;
 
 								case BOTTOM:
-									if (EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || mustRotate == BOTTOM) && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = BOTTOM;
 									break;
 
 								default:
 									break;
 							}
+
+							if (mustRotate != -1 && pathNode.r != mustRotate && pathNode.s == 1)
+							{
+								pathNode = tPathNode;
+								mRotate = tRotate;
+							}
+						}
+					}
+
+					// If failed to start pathing in mustRotate direction then allow bridging and make another attempt
+					if (mustRotate != -1 && mRotate == -1 && firstAttempt)
+					{
+            			if (x1 < _width - 1)
+						{
+							int pidx4 = idx4 + 4;
+							pMap[idx + 1] = true;
+
+							rMap[pidx4 + RIGHT] = true;
+							rMap[pidx4 + UPPER] = true;
+							rMap[pidx4 + LEFT] = true;
+							rMap[pidx4 + BOTTOM] = true;
+						}
+
+            			if (y1 < _height - 1)
+						{
+							int pidx4 = idx4 + _width * 4;
+							pMap[idx + _width] = true;
+
+							rMap[pidx4 + RIGHT] = true;
+							rMap[pidx4 + UPPER] = true;
+							rMap[pidx4 + LEFT] = true;
+							rMap[pidx4 + BOTTOM] = true;
+						}
+
+            			if (x1 > 0)
+						{
+							int pidx4 = idx4 - 4;
+							pMap[idx - 1] = true;
+
+							rMap[pidx4 + RIGHT] = true;
+							rMap[pidx4 + UPPER] = true;
+							rMap[pidx4 + LEFT] = true;
+							rMap[pidx4 + BOTTOM] = true;
+						}
+
+            			if (y1 > 0)
+						{
+							int pidx4 = idx4 - _width * 4;
+							pMap[idx - _width] = true;
+
+							rMap[pidx4 + RIGHT] = true;
+							rMap[pidx4 + UPPER] = true;
+							rMap[pidx4 + LEFT] = true;
+							rMap[pidx4 + BOTTOM] = true;
+						}
+
+						firstAttempt = false;
+						continue;
 					}
 				}
 				else
@@ -1748,22 +1853,22 @@ public class LiquidPathFinder
 							switch (evaluateRotateOrder[i])
 							{
 								case RIGHT:
-									if (pRotate != LEFT && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (pRotate != LEFT && (!invisible || pRotate == RIGHT) && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = RIGHT;
 									break;
 
 								case UPPER:
-									if (pRotate != BOTTOM && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (pRotate != BOTTOM && (!invisible || pRotate == UPPER) && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = UPPER;
 									break;
 
 								case LEFT:
-									if (pRotate != RIGHT && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (pRotate != RIGHT && (!invisible || pRotate == LEFT) && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = LEFT;
 									break;
 
 								case BOTTOM:
-									if (pRotate != UPPER && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (pRotate != UPPER && (!invisible || pRotate == BOTTOM) && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = BOTTOM;
 									break;
 
@@ -1775,22 +1880,22 @@ public class LiquidPathFinder
 							switch (evaluateRotateOrder[i])
 							{
 								case RIGHT:
-									if (EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || pRotate == RIGHT) && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = RIGHT;
 									break;
 
 								case UPPER:
-									if (EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || pRotate == UPPER) && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = UPPER;
 									break;
 
 								case LEFT:
-									if (EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || pRotate == LEFT) && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = LEFT;
 									break;
 
 								case BOTTOM:
-									if (EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || pRotate == BOTTOM) && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = BOTTOM;
 									break;
 
@@ -2022,49 +2127,52 @@ public class LiquidPathFinder
 			final PathNode pathNode = pathNodes1.get(i);
 			final int idx5 = pathNode.i;
 
-			final int r1 = pathNode.r;
-			final int r0 = pPathNode == null ? -1 : pPathNode.r;
-			final int s1 = pathNode.s;
-			final int s0 = pPathNode == null ? 1 : pPathNode.s;
-
-			final int right = idx5 + 1;
-			final int upper = idx5 + _width;
-			final int left = idx5 - 1;
-			final int bottom = idx5 - _width;
-
-			final int rightIndex = pathNode.x + 1 < _width ? iMap[right] : -1;
-			final int upperIndex = pathNode.y + 1 < _height ? iMap[upper] : -1;
-			final int leftIndex = pathNode.x - 1 >= 0 ? iMap[left] : -1;
-			final int bottomIndex = pathNode.y - 1 >= 0 ? iMap[bottom] : -1;
-
-			if (r1 != RIGHT && r0 != LEFT && i < rightIndex && ii < rightIndex && (pathNode.x - 1 < 0 || !oMap[left]))
+			if (_map[idx5] != INVISIBLE)
 			{
-				ii = rightIndex;
-				rr = RIGHT;
-			}
+				final int r1 = pathNode.r;
+				final int r0 = pPathNode == null ? -1 : pPathNode.r;
+				final int s1 = pathNode.s;
+				final int s0 = pPathNode == null ? 1 : pPathNode.s;
 
-			if (r1 != UPPER && r0 != BOTTOM && i < upperIndex && ii < upperIndex && (pathNode.y - 1 < 0 || !oMap[bottom]))
-			{
-				ii = upperIndex;
-				rr = UPPER;
-			}
+				final int right = idx5 + 1;
+				final int upper = idx5 + _width;
+				final int left = idx5 - 1;
+				final int bottom = idx5 - _width;
 
-			if (r1 != LEFT && r0 != RIGHT && i < leftIndex && ii < leftIndex && (pathNode.x + 1 >= _width || !oMap[right]))
-			{
-				ii = leftIndex;
-				rr = LEFT;
-			}
+				final int rightIndex = pathNode.x + 1 < _width ? iMap[right] : -1;
+				final int upperIndex = pathNode.y + 1 < _height ? iMap[upper] : -1;
+				final int leftIndex = pathNode.x - 1 >= 0 ? iMap[left] : -1;
+				final int bottomIndex = pathNode.y - 1 >= 0 ? iMap[bottom] : -1;
 
-			if (r1 != BOTTOM && r0 != UPPER && i < bottomIndex && ii < bottomIndex && (pathNode.y + 1 >= _height || !oMap[upper]))
-			{
-				ii = bottomIndex;
-				rr = BOTTOM;
-			}
+				if (r1 != RIGHT && r0 != LEFT && i < rightIndex && ii < rightIndex && (pathNode.x - 1 < 0 || !oMap[left]) && _map[right] != INVISIBLE)
+				{
+					ii = rightIndex;
+					rr = RIGHT;
+				}
 
-			if (ii != -1 && s1 == 1 && s0 == 1)
-			{
-				pathNode.r = rr;
-				i = ii - 1;
+				if (r1 != UPPER && r0 != BOTTOM && i < upperIndex && ii < upperIndex && (pathNode.y - 1 < 0 || !oMap[bottom]) && _map[upper] != INVISIBLE)
+				{
+					ii = upperIndex;
+					rr = UPPER;
+				}
+
+				if (r1 != LEFT && r0 != RIGHT && i < leftIndex && ii < leftIndex && (pathNode.x + 1 >= _width || !oMap[right]) && _map[left] != INVISIBLE)
+				{
+					ii = leftIndex;
+					rr = LEFT;
+				}
+
+				if (r1 != BOTTOM && r0 != UPPER && i < bottomIndex && ii < bottomIndex && (pathNode.y + 1 >= _height || !oMap[upper]) && _map[bottom] != INVISIBLE)
+				{
+					ii = bottomIndex;
+					rr = BOTTOM;
+				}
+
+				if (ii != -1 && s1 == 1 && s0 == 1)
+				{
+					pathNode.r = rr;
+					i = ii - 1;
+				}
 			}
 
 			pathNodes2.add(pathNode);
@@ -2093,62 +2201,27 @@ public class LiquidPathFinder
 		pathNodes1 = pathNodes2;
 
 		PathNode pathNode = null;
-		PathNode nPathNode = null;
-
-		// Last path node case
-		// Not armored if tile after last tile is the only reason of danger state
-		if (pathNodes1.size() >= 2)
-		{
-			pathNode = pathNodes1.get(pathNodes1.size() - 1);
-			nPathNode = pathNodes1.get(pathNodes1.size() - 2);
-
-			if (pathNode.s == 1 && nPathNode.s == 1)
-			{
-				final int idx5 = pathNode.i;
-
-				if ((_map[idx5] == COLLIDE || _map[idx5] == DANGER)
-					&& ((pathNode.r != RIGHT && pathNode.r != LEFT && ((pathNode.x + 1 < _width && oMap[idx5 + 1])
-					|| (pathNode.x - 1 >= 0 && oMap[idx5 - 1]))) || (pathNode.r != UPPER && pathNode.r != BOTTOM
-					&& ((pathNode.y + 1 < _height && oMap[idx5 + _width]) || (pathNode.y - 1 >= 0 && oMap[idx5 - _width])))))
-					buildPath.addLast(new BuildPlan(pathNode.x, pathNode.y, pathNode.r, Blocks.armoredDuct));
-				else
-					buildPath.addLast(new BuildPlan(pathNode.x, pathNode.y, pathNode.r, Blocks.duct));
-			}
-			else
-				buildPath.addLast(new BuildPlan(pathNode.x, pathNode.y, pathNode.r, Blocks.ductBridge));
-		}
+		PathNode nPathNode = pathNodes1.get(pathNodes1.size() - 1);;
 
 		// Path building
 		// Process in reverse order because it is safer to build
-		for (int i = pathNodes1.size() - 2; i >= 1; --i)
+		for (int i = pathNodes1.size() - 1; i >= 0; --i)
 		{
 			pathNode = nPathNode;
-			nPathNode = pathNodes1.get(i - 1);
+			nPathNode = i == 0 ? null : pathNodes1.get(i - 1);
 
-			// Bridge steps are 1 (end-chain bridge), 2, 3, 4; (armored) duct step is 1
-			if (pathNode.s == 1 && nPathNode.s == 1)
+			// Bridge steps are 1 (end-chain bridge), 2, 3, 4; conduit and junction step is 1
+			if (pathNode.s == 1 && (i == 0 || nPathNode.s == 1))
 			{
 				int idx5 = pathNode.i;
 
-				if (_map[idx5] == COLLIDE || _map[idx5] == DANGER)
-					buildPath.addLast(new BuildPlan(pathNode.x, pathNode.y, pathNode.r, Blocks.armoredDuct));
+				if (_map[idx5] == INVISIBLE)
+					buildPath.addLast(new BuildPlan(pathNode.x, pathNode.y, pathNode.r, Blocks.reinforcedLiquidJunction));
 				else
-					buildPath.addLast(new BuildPlan(pathNode.x, pathNode.y, pathNode.r, Blocks.duct));
+					buildPath.addLast(new BuildPlan(pathNode.x, pathNode.y, pathNode.r, Blocks.reinforcedConduit));
 			}
 			else
-				buildPath.addLast(new BuildPlan(pathNode.x, pathNode.y, pathNode.r, Blocks.ductBridge));
-		}
-
-		// First path node case
-		// Not armored
-		if (pathNodes1.size() >= 1)
-		{
-			pathNode = pathNodes1.get(0);
-
-			if (pathNode.s == 1)
-				buildPath.addLast(new BuildPlan(pathNode.x, pathNode.y, pathNode.r, Blocks.duct));
-			else
-				buildPath.addLast(new BuildPlan(pathNode.x, pathNode.y, pathNode.r, Blocks.ductBridge));
+				buildPath.addLast(new BuildPlan(pathNode.x, pathNode.y, pathNode.r, Blocks.reinforcedBridgeConduit));
 		}
 
 		BuildPlan buildPlan1 = null;
@@ -2156,12 +2229,12 @@ public class LiquidPathFinder
 
 		final ListIterator<BuildPlan> iterator = buildPath.listIterator();
 
-		// Bridges and ducts reduction (have you ever seen 1-3 ducts between bridges in manual path building?)
+		// Bridges and conduits reduction (have you ever seen 1-3 conduits between bridges in manual path building?)
 		while (iterator.hasNext())
 		{
 			final BuildPlan buildPlan = iterator.next();
 
-			if (buildPlan.block == Blocks.ductBridge)
+			if (buildPlan.block == Blocks.reinforcedBridgeConduit)
 			{
 				BuildPlan clear = null;
 
@@ -2276,14 +2349,18 @@ public class LiquidPathFinder
 		if (tiles == null)
 			throw new NullPointerException("Vars.world.tiles is null");
 
-		// Divide all tiles into protect, block and empty tiles
+		// Divide all tiles into invisible, protect, block and empty tiles
 		for (int i = 0; i < _size; ++i)
 		{
 			final Tile tile = tiles.geti(i);
+			final Block block = tile.block();
+			final Building build = tile.build;
 
 			if (map[i])
 			{
-				if (tile.block() == Blocks.ductBridge && tile.build != null && tile.build.team == team)
+				if (block == Blocks.reinforcedConduit && build != null && build.team == team)
+					_map[i] = INVISIBLE;
+				else if (block == Blocks.reinforcedBridgeConduit && build != null && build.team == team)
 					_map[i] = PROTECT;
 				else
 					_map[i] = BLOCK;
@@ -2297,7 +2374,7 @@ public class LiquidPathFinder
 		// than to seek buildings and bridges around each empty tile
 		for (int y = 0, i = 0; y < _height; ++y)
 			for (int x = 0; x < _width; ++x, ++i)
-				if (_map[i] == PROTECT || _map[i] == BLOCK)
+				if (_map[i] == INVISIBLE || _map[i] == PROTECT || _map[i] == BLOCK)
 				{
 					final Tile tile = tiles.geti(i);
 					final Building build = tile.build;
@@ -2315,8 +2392,8 @@ public class LiquidPathFinder
 						final Block block = tile.block();
 
 						// Check one building only once (build.tile == tile)
-						// Check blocks that output items but not payloads (like T2/T3 factories)
-						if (build.tile == tile && block.outputsItems() && !block.outputsPayload)
+						// Check blocks that output liquids
+						if (build.tile == tile && block.outputsLiquid)
 							ProcessBlock(block, build.rotation, x, y, i);
 					}
 				}
@@ -2335,7 +2412,9 @@ public class LiquidPathFinder
 			{
 				final Block block = buildPlan.block;
 
-				if (block == Blocks.ductBridge)
+				if (block == Blocks.reinforcedConduit)
+					_map[buildPlan.x + buildPlan.y * _width] = INVISIBLE;
+				else if (block == Blocks.reinforcedBridgeConduit)
 					_map[buildPlan.x + buildPlan.y * _width] = PROTECT;
 				else if (block.size == 1)
 					_map[buildPlan.x + buildPlan.y * _width] = BLOCK;
@@ -2363,9 +2442,9 @@ public class LiquidPathFinder
 				final Block block = buildPlan.block;
 				final int idx = buildPlan.x + buildPlan.y * _width;
 
-				if (block == Blocks.ductBridge)
+				if (block == Blocks.reinforcedBridgeConduit)
 					ProcessProtect(buildPlan.rotation, buildPlan.x, buildPlan.y, idx);
-				else if (block.outputsItems() && !block.outputsPayload)
+				else if (block.outputsLiquid)
 					ProcessBlock(block, buildPlan.rotation, buildPlan.x, buildPlan.y, idx);
 			}
 	}

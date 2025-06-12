@@ -69,7 +69,7 @@ public class Machindustry extends Mod {
 				validPlace.UpdateMap();
                 pathFinder.UpdateMap(validPlace.Map);
                 pathFinder.UpdateMap(validPlace.BuildPlans);
-                LinkedList<BuildPlan> buildPath = pathFinder.BuildPath(tile1, event.tile, true);
+                LinkedList<BuildPlan> buildPath = pathFinder.BuildPath(tile1, event.tile, -1, true);
                 tile1 = null;
 
                 if (buildPath != null)
