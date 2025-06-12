@@ -35,6 +35,7 @@ import arc.util.Tmp;
 
 public class Machindustry extends Mod {
     private Tile tile1 = null;
+    private Tile tile2 = null;
     private boolean build = false;
 
     public Machindustry() {
@@ -54,6 +55,8 @@ public class Machindustry extends Mod {
             {
             if (tile1 == null)
                 tile1 = event.tile;
+            else if (tile2 == null)
+                tile2 = event.tile;
             else
             {
                 Unit unit = Vars.player.unit();
@@ -69,8 +72,9 @@ public class Machindustry extends Mod {
 				validPlace.UpdateMap();
                 pathFinder.UpdateMap(validPlace.Map);
                 pathFinder.UpdateMap(validPlace.BuildPlans);
-                LinkedList<BuildPlan> buildPath = pathFinder.BuildPath(tile1, event.tile, -1, true);
+                LinkedList<BuildPlan> buildPath = pathFinder.BuildPath(tile1, tile2, event.tile.x - tile2.x, true);
                 tile1 = null;
+                tile2 = null;
 
                 if (buildPath != null)
                     for (BuildPlan buildPlan : buildPath)

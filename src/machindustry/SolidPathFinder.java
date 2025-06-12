@@ -144,6 +144,11 @@ public class SolidPathFinder
 	private final byte[] _map;
 
 	/**
+	 * Internal output items map
+	*/
+	private final boolean[] oMap;
+
+	/**
 	 * How much evaluations done before timer check
 	*/
 	public long Frequency = -1;
@@ -163,7 +168,6 @@ public class SolidPathFinder
 		final PathNode pathNode,
 		final int[] bMap,
 		final int[] iMap,
-		final boolean[] oMap,
 		final boolean[] pMap,
 		final boolean[] rMap,
 		final int idx,
@@ -348,7 +352,6 @@ public class SolidPathFinder
 		final PathNode pathNode,
 		final int[] bMap,
 		final int[] iMap,
-		final boolean[] oMap,
 		final boolean[] pMap,
 		final boolean[] rMap,
 		final int idx,
@@ -535,7 +538,6 @@ public class SolidPathFinder
 		final PathNode pathNode,
 		final int[] bMap,
 		final int[] iMap,
-		final boolean[] oMap,
 		final boolean[] pMap,
 		final boolean[] rMap,
 		final int idx,
@@ -720,7 +722,6 @@ public class SolidPathFinder
 		final PathNode pathNode,
 		final int[] bMap,
 		final int[] iMap,
-		final boolean[] oMap,
 		final boolean[] pMap,
 		final boolean[] rMap,
 		final int idx,
@@ -1276,6 +1277,7 @@ public class SolidPathFinder
 		_width = width;
 		_size = height * width;
 		_map = new byte[_size];
+		oMap = new boolean[_size];
 	}
 
 	public SolidPathFinder(int height, int width, long freq, long time)
@@ -1403,11 +1405,6 @@ public class SolidPathFinder
 		final int[] iMap = new int[_size];
 
 		/**
-	 	 * Output tiles map. Does not change after initialization.
-		*/
-		final boolean[] oMap = new boolean[_size];
-
-		/**
 	 	 * Path nodes map. Stores false or true for valid path node.
 		*/
 		final boolean[] pMap = new boolean[_size];
@@ -1457,16 +1454,9 @@ public class SolidPathFinder
 		// Fill indices map with -1
 		Arrays.fill(iMap, -1);
 
-		// Map all output tiles to oMap
 		// Map all blocked tiles to pMap and rMap
 		// Suppose Java initialized arrays with falses already
 		for (int i = 0, j = 0; i < _size; ++i, j += 4)
-		{
-			final Tile tile = tiles.geti(i);
-
-			if (tile.block().outputsItems() && !tile.block().outputsPayload)
-				oMap[i] = true;
-
 			if (_map[i] == PROTECT || _map[i] == BLOCK)
 			{
 				pMap[i] = true;
@@ -1476,7 +1466,6 @@ public class SolidPathFinder
 				rMap[j + LEFT] = true;
 				rMap[j + BOTTOM] = true;
 			}
-		}
 
 		int pRotate;
 		int pStep = 1;
@@ -1733,22 +1722,22 @@ public class SolidPathFinder
 							switch (evaluateRotateOrder[i])
 							{
 								case RIGHT:
-									if (EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = RIGHT;
 									break;
 
 								case UPPER:
-									if (EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = UPPER;
 									break;
 
 								case LEFT:
-									if (EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = LEFT;
 									break;
 
 								case BOTTOM:
-									if (EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = BOTTOM;
 									break;
 
@@ -1775,22 +1764,22 @@ public class SolidPathFinder
 							switch (evaluateRotateOrderEx[i])
 							{
 								case RIGHT:
-									if (EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = RIGHT;
 									break;
 
 								case UPPER:
-									if (EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = UPPER;
 									break;
 
 								case LEFT:
-									if (EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = LEFT;
 									break;
 
 								case BOTTOM:
-									if (EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = BOTTOM;
 									break;
 
@@ -1806,22 +1795,22 @@ public class SolidPathFinder
 							switch (evaluateRotateOrder[i])
 							{
 								case RIGHT:
-									if (pRotate != LEFT && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (pRotate != LEFT && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = RIGHT;
 									break;
 
 								case UPPER:
-									if (pRotate != BOTTOM && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (pRotate != BOTTOM && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = UPPER;
 									break;
 
 								case LEFT:
-									if (pRotate != RIGHT && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (pRotate != RIGHT && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = LEFT;
 									break;
 
 								case BOTTOM:
-									if (pRotate != UPPER && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (pRotate != UPPER && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = BOTTOM;
 									break;
 
@@ -1833,22 +1822,22 @@ public class SolidPathFinder
 							switch (evaluateRotateOrder[i])
 							{
 								case RIGHT:
-									if (EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = RIGHT;
 									break;
 
 								case UPPER:
-									if (EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = UPPER;
 									break;
 
 								case LEFT:
-									if (EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = LEFT;
 									break;
 
 								case BOTTOM:
-									if (EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = BOTTOM;
 									break;
 
@@ -2350,6 +2339,8 @@ public class SolidPathFinder
 			}
 			else
 				_map[i] = EMPTY;
+
+			oMap[i] = block.outputsItems() && !block.outputsPayload;
 		}
 
 		// Divide empty tiles into collide, damage, danger, block and empty tiles
@@ -2409,9 +2400,17 @@ public class SolidPathFinder
 
 					final int step = _width + x1 - x2;
 
-					for (int y = y1, i = x1 + y1 * _width; y < y2; ++y, i += step)
-						for (int x = x1; x < x2; ++x, ++i)
-							_map[i] = BLOCK;
+					if (block.outputsItems() && !block.outputsPayload)
+						for (int y = y1, i = x1 + y1 * _width; y < y2; ++y, i += step)
+							for (int x = x1; x < x2; ++x, ++i)
+							{
+								_map[i] = BLOCK;
+								oMap[i] = true;
+							}
+					else
+						for (int y = y1, i = x1 + y1 * _width; y < y2; ++y, i += step)
+							for (int x = x1; x < x2; ++x, ++i)
+								_map[i] = BLOCK;
 				}
 			}
 			

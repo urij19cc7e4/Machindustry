@@ -152,6 +152,16 @@ public class LiquidPathFinder
 	private final byte[] _map;
 
 	/**
+	 * Internal output liquids map
+	*/
+	private final boolean[] oMap;
+
+	/**
+	 * Internal invisible rotation map
+	*/
+	private final boolean[] vMap;
+
+	/**
 	 * How much evaluations done before timer check
 	*/
 	public long Frequency = -1;
@@ -171,7 +181,6 @@ public class LiquidPathFinder
 		final PathNode pathNode,
 		final int[] bMap,
 		final int[] iMap,
-		final boolean[] oMap,
 		final boolean[] pMap,
 		final boolean[] rMap,
 		final int idx,
@@ -210,6 +219,10 @@ public class LiquidPathFinder
 			// Evaluate bridges only if there is block ahead to prevent full-bridge paths
 			if (!pMap[right_1_1] && (!rMap[right_1_4 + RIGHT] || !rMap[right_1_4 + UPPER] || !rMap[right_1_4 + BOTTOM]) && (pStep <= 1 || bMap[idx] == 0))
 			{
+				// Check if invisible rotation same as evaluated
+				if (_map[idx] == INVISIBLE && vMap[idx])
+					return false;
+
 				// Check if liquids output block is behind
 				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && x1 - 1 >= 0 && oMap[left_1_1])
@@ -356,7 +369,6 @@ public class LiquidPathFinder
 		final PathNode pathNode,
 		final int[] bMap,
 		final int[] iMap,
-		final boolean[] oMap,
 		final boolean[] pMap,
 		final boolean[] rMap,
 		final int idx,
@@ -397,6 +409,10 @@ public class LiquidPathFinder
 			// Evaluate bridges only if there is block ahead to prevent full-bridge paths
 			if (!pMap[upper_1_1] && (!rMap[upper_1_4 + UPPER] || !rMap[upper_1_4 + RIGHT] || !rMap[upper_1_4 + LEFT]) && (pStep <= 1 || bMap[idx] == 0))
 			{
+				// Check if invisible rotation same as evaluated
+				if (_map[idx] == INVISIBLE && !vMap[idx])
+					return false;
+					
 				// Check if liquids output block is behind
 				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && y1 - 1 >= 0 && oMap[bottom_1_1])
@@ -543,7 +559,6 @@ public class LiquidPathFinder
 		final PathNode pathNode,
 		final int[] bMap,
 		final int[] iMap,
-		final boolean[] oMap,
 		final boolean[] pMap,
 		final boolean[] rMap,
 		final int idx,
@@ -582,6 +597,10 @@ public class LiquidPathFinder
 			// Evaluate bridges only if there is block ahead to prevent full-bridge paths
 			if (!pMap[left_1_1] && (!rMap[left_1_4 + LEFT] || !rMap[left_1_4 + UPPER] || !rMap[left_1_4 + BOTTOM]) && (pStep <= 1 || bMap[idx] == 0))
 			{
+				// Check if invisible rotation same as evaluated
+				if (_map[idx] == INVISIBLE && vMap[idx])
+					return false;
+					
 				// Check if liquids output block is behind
 				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && x1 + 1 < _width && oMap[right_1_1])
@@ -728,7 +747,6 @@ public class LiquidPathFinder
 		final PathNode pathNode,
 		final int[] bMap,
 		final int[] iMap,
-		final boolean[] oMap,
 		final boolean[] pMap,
 		final boolean[] rMap,
 		final int idx,
@@ -769,6 +787,10 @@ public class LiquidPathFinder
 			// Evaluate bridges only if there is block ahead to prevent full-bridge paths
 			if (!pMap[bottom_1_1] && (!rMap[bottom_1_4 + BOTTOM] || !rMap[bottom_1_4 + RIGHT] || !rMap[bottom_1_4 + LEFT]) && (pStep <= 1 || bMap[idx] == 0))
 			{
+				// Check if invisible rotation same as evaluated
+				if (_map[idx] == INVISIBLE && !vMap[idx])
+					return false;
+					
 				// Check if liquids output block is behind
 				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && y1 + 1 < _height && oMap[upper_1_1])
@@ -1237,6 +1259,8 @@ public class LiquidPathFinder
 		_width = width;
 		_size = height * width;
 		_map = new byte[_size];
+		oMap = new boolean[_size];
+		vMap = new boolean[_size];
 	}
 
 	public LiquidPathFinder(int height, int width, long freq, long time)
@@ -1373,11 +1397,6 @@ public class LiquidPathFinder
 		final int[] iMap = new int[_size];
 
 		/**
-	 	 * Output tiles map. Does not change after initialization.
-		*/
-		final boolean[] oMap = new boolean[_size];
-
-		/**
 	 	 * Path nodes map. Stores false or true for valid path node.
 		*/
 		final boolean[] pMap = new boolean[_size];
@@ -1427,17 +1446,9 @@ public class LiquidPathFinder
 		// Fill indices map with -1
 		Arrays.fill(iMap, -1);
 
-		// Map all output tiles to oMap
 		// Map all blocked tiles to pMap and rMap
 		// Suppose Java initialized arrays with falses already
 		for (int i = 0, j = 0; i < _size; ++i, j += 4)
-		{
-			final Tile tile = tiles.geti(i);
-			final Block block = tile.block();
-
-			if (block.outputsLiquid)
-				oMap[i] = true;
-
 			if (_map[i] == PROTECT || _map[i] == BLOCK)
 			{
 				pMap[i] = true;
@@ -1447,7 +1458,6 @@ public class LiquidPathFinder
 				rMap[j + LEFT] = true;
 				rMap[j + BOTTOM] = true;
 			}
-		}
 
 		int pRotate;
 		int pStep = 1;
@@ -1711,22 +1721,22 @@ public class LiquidPathFinder
 							switch (evaluateRotateOrder[i])
 							{
 								case RIGHT:
-									if ((!invisible || mustRotate == RIGHT) && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (mustRotate != LEFT && (!invisible || mustRotate == RIGHT) && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = RIGHT;
 									break;
 
 								case UPPER:
-									if ((!invisible || mustRotate == UPPER) && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (mustRotate != BOTTOM && (!invisible || mustRotate == UPPER) && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = UPPER;
 									break;
 
 								case LEFT:
-									if ((!invisible || mustRotate == LEFT) && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (mustRotate != RIGHT && (!invisible || mustRotate == LEFT) && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = LEFT;
 									break;
 
 								case BOTTOM:
-									if ((!invisible || mustRotate == BOTTOM) && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (mustRotate != UPPER && (!invisible || mustRotate == BOTTOM) && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = BOTTOM;
 									break;
 
@@ -1734,7 +1744,7 @@ public class LiquidPathFinder
 									break;
 							}
 
-							if (mustRotate != -1 && pathNode.r != mustRotate && pathNode.s == 1)
+							if (mustRotate != -1 && mRotate != mustRotate && pathNode.s == 1)
 							{
 								pathNode = tPathNode;
 								mRotate = tRotate;
@@ -1764,22 +1774,22 @@ public class LiquidPathFinder
 							switch (evaluateRotateOrderEx[i])
 							{
 								case RIGHT:
-									if ((!invisible || mustRotate == RIGHT) && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (mustRotate != LEFT && (!invisible || mustRotate == RIGHT) && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = RIGHT;
 									break;
 
 								case UPPER:
-									if ((!invisible || mustRotate == UPPER) && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (mustRotate != BOTTOM && (!invisible || mustRotate == UPPER) && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = UPPER;
 									break;
 
 								case LEFT:
-									if ((!invisible || mustRotate == LEFT) && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (mustRotate != RIGHT && (!invisible || mustRotate == LEFT) && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = LEFT;
 									break;
 
 								case BOTTOM:
-									if ((!invisible || mustRotate == BOTTOM) && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (mustRotate != UPPER && (!invisible || mustRotate == BOTTOM) && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = BOTTOM;
 									break;
 
@@ -1787,7 +1797,7 @@ public class LiquidPathFinder
 									break;
 							}
 
-							if (mustRotate != -1 && pathNode.r != mustRotate && pathNode.s == 1)
+							if (mustRotate != -1 && mRotate != mustRotate && pathNode.s == 1)
 							{
 								pathNode = tPathNode;
 								mRotate = tRotate;
@@ -1853,22 +1863,22 @@ public class LiquidPathFinder
 							switch (evaluateRotateOrder[i])
 							{
 								case RIGHT:
-									if (pRotate != LEFT && (!invisible || pRotate == RIGHT) && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (pRotate != LEFT && (!invisible || pRotate == RIGHT) && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = RIGHT;
 									break;
 
 								case UPPER:
-									if (pRotate != BOTTOM && (!invisible || pRotate == UPPER) && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (pRotate != BOTTOM && (!invisible || pRotate == UPPER) && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = UPPER;
 									break;
 
 								case LEFT:
-									if (pRotate != RIGHT && (!invisible || pRotate == LEFT) && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (pRotate != RIGHT && (!invisible || pRotate == LEFT) && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = LEFT;
 									break;
 
 								case BOTTOM:
-									if (pRotate != UPPER && (!invisible || pRotate == BOTTOM) && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (pRotate != UPPER && (!invisible || pRotate == BOTTOM) && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = BOTTOM;
 									break;
 
@@ -1880,22 +1890,22 @@ public class LiquidPathFinder
 							switch (evaluateRotateOrder[i])
 							{
 								case RIGHT:
-									if ((!invisible || pRotate == RIGHT) && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || pRotate == RIGHT) && EvaluateRightRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = RIGHT;
 									break;
 
 								case UPPER:
-									if ((!invisible || pRotate == UPPER) && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || pRotate == UPPER) && EvaluateUpperRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = UPPER;
 									break;
 
 								case LEFT:
-									if ((!invisible || pRotate == LEFT) && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || pRotate == LEFT) && EvaluateLeftRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = LEFT;
 									break;
 
 								case BOTTOM:
-									if ((!invisible || pRotate == BOTTOM) && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, oMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if ((!invisible || pRotate == BOTTOM) && EvaluateBottomRotate(pathNodes1, pathNode, bMap, iMap, pMap, rMap, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = BOTTOM;
 									break;
 
@@ -2117,9 +2127,10 @@ public class LiquidPathFinder
 		}
 
 		PathNode pPathNode = null;
+		pathNodes2.add(pathNodes1.get(0));
 		
 		// Path reduction
-		for (int i = 0; i < pathNodes1.size(); ++i)
+		for (int i = 1; i < pathNodes1.size(); ++i)
 		{
 			int ii = -1;
 			int rr = -1;
@@ -2359,7 +2370,10 @@ public class LiquidPathFinder
 			if (map[i])
 			{
 				if (block == Blocks.reinforcedConduit && build != null && build.team == team)
+				{
 					_map[i] = INVISIBLE;
+					vMap[i] = build.rotation == RIGHT || build.rotation == LEFT;
+				}
 				else if (block == Blocks.reinforcedBridgeConduit && build != null && build.team == team)
 					_map[i] = PROTECT;
 				else
@@ -2367,6 +2381,8 @@ public class LiquidPathFinder
 			}
 			else
 				_map[i] = EMPTY;
+
+			oMap[i] = block.outputsLiquid;
 		}
 
 		// Divide empty tiles into collide, damage, danger, block and empty tiles
@@ -2413,7 +2429,12 @@ public class LiquidPathFinder
 				final Block block = buildPlan.block;
 
 				if (block == Blocks.reinforcedConduit)
-					_map[buildPlan.x + buildPlan.y * _width] = INVISIBLE;
+				{
+					int idx = buildPlan.x + buildPlan.y * _width;
+
+					_map[idx] = INVISIBLE;
+					vMap[idx] = buildPlan.rotation == RIGHT || buildPlan.rotation == LEFT;
+				}
 				else if (block == Blocks.reinforcedBridgeConduit)
 					_map[buildPlan.x + buildPlan.y * _width] = PROTECT;
 				else if (block.size == 1)
@@ -2428,9 +2449,17 @@ public class LiquidPathFinder
 
 					final int step = _width + x1 - x2;
 
-					for (int y = y1, i = x1 + y1 * _width; y < y2; ++y, i += step)
-						for (int x = x1; x < x2; ++x, ++i)
-							_map[i] = BLOCK;
+					if (block.outputsLiquid)
+						for (int y = y1, i = x1 + y1 * _width; y < y2; ++y, i += step)
+							for (int x = x1; x < x2; ++x, ++i)
+							{
+								_map[i] = BLOCK;
+								oMap[i] = true;
+							}
+					else
+						for (int y = y1, i = x1 + y1 * _width; y < y2; ++y, i += step)
+							for (int x = x1; x < x2; ++x, ++i)
+								_map[i] = BLOCK;
 				}
 			}
 			
