@@ -42,7 +42,6 @@ public class Machindustry extends Mod {
         System.out.println("Hello");
         Core.input.addProcessor(new InputProcessor() {
             public boolean keyDown(KeyCode keycode) {
-				System.out.println(Blocks.afflict.placeOverlapRange);
                 if (keycode == KeyCode.l) {
                     build = !build;
                     return true;
@@ -55,8 +54,6 @@ public class Machindustry extends Mod {
             {
             if (tile1 == null)
                 tile1 = event.tile;
-            else if (tile2 == null)
-                tile2 = event.tile;
             else
             {
                 Unit unit = Vars.player.unit();
@@ -68,11 +65,11 @@ public class Machindustry extends Mod {
                     // TODO Auto-generated catch block
                     e.printStackTrace();
                 }
-                LiquidPathFinder pathFinder = new LiquidPathFinder(Vars.world.height(), Vars.world.width());
+                SolidPathFinder pathFinder = new SolidPathFinder(Vars.world.height(), Vars.world.width());
 				validPlace.UpdateMap();
                 pathFinder.UpdateMap(validPlace.Map);
                 pathFinder.UpdateMap(validPlace.BuildPlans);
-                LinkedList<BuildPlan> buildPath = pathFinder.BuildPath(tile1, tile2, event.tile.x - tile2.x, true);
+                LinkedList<BuildPlan> buildPath = pathFinder.BuildPath(tile1, event.tile, false);
                 tile1 = null;
                 tile2 = null;
 
@@ -91,27 +88,5 @@ public class Machindustry extends Mod {
             // }
             //createRandomBeamNode();
         });
-    }
-
-    private void createRandomBeamNode() {
-        Block beamNode = Vars.content.block("beam-node"); // Получаем блок лучевого узла
-        Unit unit = Vars.player.unit(); // Берем юнита игрока
-        
-        if (beamNode != null && unit != null) {
-            int startX = unit.tileX() - 12; // Центр юнита - 12 блоков влево
-            int startY = unit.tileY() - 12; // Центр юнита - 12 блоков вверх
-            int endX = unit.tileX() + 12; // Центр юнита + 12 блоков вправо
-            int endY = unit.tileY() + 12; // Центр юнита + 12 блоков вниз
-            
-            for (int x = startX; x <= endX; x++) {
-                for (int y = startY; y <= endY; y++) {
-                    Tile tile = Vars.world.tile(x, y);
-                    if (tile != null && tile.block().solid == false) { // Проверка, можно ли строить
-                        BuildPlan buildPlan = new BuildPlan(tile.x, tile.y, 0, beamNode);
-                        unit.addBuild(buildPlan); // Добавляем узел в очередь строительства юнита
-                    }
-                }
-            }
-        }
     }
 }

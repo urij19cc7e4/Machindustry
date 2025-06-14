@@ -43,7 +43,7 @@ public class WorldState implements AutoCloseable
 	/**
 	 * Interacts with game data in main game thread
 	*/
-	private final Cons<?> _updater = e -> MainGameThreadUpdate();
+	private final Cons<?> _updater = _ -> MainGameThreadUpdate();
 
 	/**
 	 * Used to check if close invoked in same thread as constructor; assuming constructor was invoked in main game thread
@@ -86,7 +86,7 @@ public class WorldState implements AutoCloseable
 	public boolean PolygonSafeZone = true;
 
 	/**
-	 * Better safe than sorry. Increases radius by given value. This is TILE term not UNIT (not x8).
+	 * Better safe than sorry. Increases radius borders by given value. This is TILE term not UNIT (not x8).
 	*/
 	public float RadiusSafeZone = 1F;
 
@@ -105,15 +105,19 @@ public class WorldState implements AutoCloseable
 		// If other thread already cmpxchg null to not null then do not care
 		final BuildPlan[] buildPlansMachinary = BuildPlansMachinary.get();
 		BuildPlansMachinary.compareAndSet(buildPlansMachinary, null);
+		
+		if (buildPlansMachinary != null)
+		{
+			queue.ensureCapacity(buildPlansMachinary.length);
+			
+			for (BuildPlan buildPlan : buildPlansMachinary)
+				queue.addLast(buildPlan);
+		}
 
 		final BuildPlan[] buildPlans = new BuildPlan[queue.size];
 
 		CoreBuild[] cores;
 		int count = 0;
-
-		if (buildPlansMachinary != null)
-			for (BuildPlan buildPlan : buildPlansMachinary)
-				queue.add(buildPlan);
 
 		for (BuildPlan buildPlan : queue)
 			buildPlans[count++] = buildPlan;
@@ -353,12 +357,16 @@ public class WorldState implements AutoCloseable
 					final int yMin = Math.max((int)Math.ceil((core.y - tileRadius) / tilesize), 0);
 	
 					final int step = Width + xMin - xMax - 1;
+					float fy = (float)yMin * tilesize;
 	
 					// Yes I do not use float as loop counter
-					for (int y = yMin, i = xMin + yMin * Width; y <= yMax; ++y, i += step)
-						for (int x = xMin; x <= xMax; ++x, ++i)
-							if (Mathf.dst2((float)x, (float)y, core.x, core.y) < tileRadiusSquare)
+					for (int y = yMin, i = xMin + yMin * Width; y <= yMax; ++y, i += step, fy += tilesize)
+					{
+						float fx = (float)xMin * tilesize;
+						for (int x = xMin; x <= xMax; ++x, ++i, fx += tilesize)
+							if (Mathf.dst2(fx, fy, core.x, core.y) < tileRadiusSquare)
 								Map[i] = true;
+					}
 				}
 		}
 
@@ -386,12 +394,16 @@ public class WorldState implements AutoCloseable
 				final int yMin = Math.max((int)Math.ceil((build.y - tileRadius) / tilesize), 0);
 	
 				final int step = Width + xMin - xMax - 1;
+				float fy = (float)yMin * tilesize;
 	
 				// Yes I do not use float as loop counter
-				for (int y = yMin, i = xMin + yMin * Width; y <= yMax; ++y, i += step)
-					for (int x = xMin; x <= xMax; ++x, ++i)
-						if (Mathf.dst2((float)x, (float)y, build.x, build.y) < tileRadiusSquare)
+				for (int y = yMin, i = xMin + yMin * Width; y <= yMax; ++y, i += step, fy += tilesize)
+				{
+					float fx = (float)xMin * tilesize;
+					for (int x = xMin; x <= xMax; ++x, ++i, fx += tilesize)
+						if (Mathf.dst2(fx, fy, build.x, build.y) < tileRadiusSquare)
 							Map[i] = true;
+				}
 			}
 		}
 

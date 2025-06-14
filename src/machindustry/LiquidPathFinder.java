@@ -39,7 +39,7 @@
 // Collide = damage && danger
 
 // Invisible system:
-// Every conduit and junction are invisible
+// Every conduit is invisible
 
 // Protect system:
 // Every bridge base (base only) tile is protect
@@ -147,7 +147,7 @@ public class LiquidPathFinder
 	private final int _size;
 
 	/**
-	 * Internal map
+	 * Internal tile state map
 	*/
 	private final byte[] _map;
 
@@ -164,12 +164,12 @@ public class LiquidPathFinder
 	/**
 	 * How much evaluations done before timer check
 	*/
-	public long Frequency = -1;
+	public long Frequency = (long)-1;
 
 	/**
 	 * How much time can spent on path building, ns
 	*/
-	public long BuildTime = -1;
+	public long BuildTime = (long)-1;
 
 	/**
 	 * Evaluates the possibility of turning the path to the right and the distance to the target.
@@ -1226,33 +1226,6 @@ public class LiquidPathFinder
 		}
 	}
 
-	private class PathNode
-	{
-		public int r;
-		public int s;
-		public int x;
-		public int y;
-		public int i;
-
-		public PathNode(int r, int s, int x, int y, int i)
-		{
-			this.r = r;
-			this.s = s;
-			this.x = x;
-			this.y = y;
-			this.i = i;
-		}
-
-		public PathNode(PathNode o)
-		{
-			r = o.r;
-			s = o.s;
-			x = o.x;
-			y = o.y;
-			i = o.i;
-		}
-	}
-
 	public LiquidPathFinder(int height, int width)
 	{
 		_height = height;
@@ -2127,10 +2100,13 @@ public class LiquidPathFinder
 		}
 
 		PathNode pPathNode = null;
-		pathNodes2.add(pathNodes1.get(0));
+
+		// Not rotate first tile if must rotate is defined
+		if (mustRotate != -1)
+			pathNodes2.add(pathNodes1.get(0));
 		
 		// Path reduction
-		for (int i = 1; i < pathNodes1.size(); ++i)
+		for (int i = mustRotate == -1 ? 0 : 1; i < pathNodes1.size(); ++i)
 		{
 			int ii = -1;
 			int rr = -1;
@@ -2212,7 +2188,7 @@ public class LiquidPathFinder
 		pathNodes1 = pathNodes2;
 
 		PathNode pathNode = null;
-		PathNode nPathNode = pathNodes1.get(pathNodes1.size() - 1);;
+		PathNode nPathNode = pathNodes1.get(pathNodes1.size() - 1);
 
 		// Path building
 		// Process in reverse order because it is safer to build
@@ -2240,7 +2216,7 @@ public class LiquidPathFinder
 
 		final ListIterator<BuildPlan> iterator = buildPath.listIterator();
 
-		// Bridges and conduits reduction (have you ever seen 1-3 conduits between bridges in manual path building?)
+		// Bridges, conduits and junctions reduction (have you ever seen 1-3 conduits between bridges in manual path building?)
 		while (iterator.hasNext())
 		{
 			final BuildPlan buildPlan = iterator.next();

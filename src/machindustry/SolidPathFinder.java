@@ -139,7 +139,7 @@ public class SolidPathFinder
 	private final int _size;
 
 	/**
-	 * Internal map
+	 * Internal tile state map
 	*/
 	private final byte[] _map;
 
@@ -151,12 +151,12 @@ public class SolidPathFinder
 	/**
 	 * How much evaluations done before timer check
 	*/
-	public long Frequency = -1;
+	public long Frequency = (long)-1;
 
 	/**
 	 * How much time can spent on path building, ns
 	*/
-	public long BuildTime = -1;
+	public long BuildTime = (long)-1;
 
 	/**
 	 * Evaluates the possibility of turning the path to the right and the distance to the target.
@@ -1241,33 +1241,6 @@ public class SolidPathFinder
 						_map[j] = COLLIDE;
 				}
 			}
-		}
-	}
-
-	private class PathNode
-	{
-		public int r;
-		public int s;
-		public int x;
-		public int y;
-		public int i;
-
-		public PathNode(int r, int s, int x, int y, int i)
-		{
-			this.r = r;
-			this.s = s;
-			this.x = x;
-			this.y = y;
-			this.i = i;
-		}
-
-		public PathNode(PathNode o)
-		{
-			r = o.r;
-			s = o.s;
-			x = o.x;
-			y = o.y;
-			i = o.i;
 		}
 	}
 
