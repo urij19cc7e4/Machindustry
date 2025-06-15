@@ -43,7 +43,7 @@ public class WorldState implements AutoCloseable
 	/**
 	 * Interacts with game data in main game thread
 	*/
-	private final Cons<?> _updater = _ -> MainGameThreadUpdate();
+	private final Cons<?> _updater = e -> MainGameThreadUpdate();
 
 	/**
 	 * Used to check if close invoked in same thread as constructor; assuming constructor was invoked in main game thread
@@ -105,11 +105,11 @@ public class WorldState implements AutoCloseable
 		// If other thread already cmpxchg null to not null then do not care
 		final BuildPlan[] buildPlansMachinary = BuildPlansMachinary.get();
 		BuildPlansMachinary.compareAndSet(buildPlansMachinary, null);
-		
+
 		if (buildPlansMachinary != null)
 		{
 			queue.ensureCapacity(buildPlansMachinary.length);
-			
+
 			for (BuildPlan buildPlan : buildPlansMachinary)
 				queue.addLast(buildPlan);
 		}
@@ -223,7 +223,7 @@ public class WorldState implements AutoCloseable
 
 		if (tiles == null)
 			throw new NullPointerException("Vars.world.tiles is null");
-		
+
 		final CoreBuild[] cores = _cores;
 		final float tilesize = (float)Vars.tilesize;
 
@@ -233,74 +233,74 @@ public class WorldState implements AutoCloseable
 		if (Vars.state.rules.polygonCoreProtection)
 		{
 			final Vec2[] coresVec2s = new Vec2[cores.length];
-	
+
 			for (int i = 0; i < cores.length; ++i)
 				coresVec2s[i] = new Vec2(cores[i].x, cores[i].y);
-	
+
 			final Seq<GraphEdge> edges = Voronoi.generate(coresVec2s, 0F, (float)Vars.world.unitWidth(), 0F, (float)Vars.world.unitHeight());
-	
+
 			// Draw Bresenham line for each graph edge that is between enemy and player teams
 			for (GraphEdge edge : edges)
 				if (cores[edge.site1].team == team ^ cores[edge.site2].team == team)
 				{
 					float x1 = edge.x1;
 					float y1 = edge.y1;
-					
+
 					final float x2 = edge.x2;
 					final float y2 = edge.y2;
-	
+
 					if (x1 == x2 && y1 == y2)
 						continue;
-	
+
 					final float dx = Math.abs(x1 - x2);
 					final float dy = Math.abs(y1 - y2);
-					
+
 					final float sx = (x1 < x2) ? tilesize : -tilesize;
 					final float sy = (y1 < y2) ? tilesize : -tilesize;
-					
+
 					final int ix2 = Math.round(x2 / tilesize);
 					final int iy2 = Math.round(y2 / tilesize);
-					
+
 					float error = dx - dy;
-					
+
 					while (true)
 					{
 						// Do you also hate 'to nearest even' rounding? Let's hate together
 						final int ix1 = Math.round(x1 / tilesize);
 						final int iy1 = Math.round(y1 / tilesize);
-	
+
 						if (ix1 < 0 || iy1 < 0 || ix1 >= Width || iy1 >= Height)
 							break;
-						
+
 						final int i = ix1 + iy1 * Width;
 						Map[i] = true;
-	
+
 						if (PolygonSafeZone)
 						{
 							if (ix1 + 1 < Width)
 								Map[i + 1] = true;
-	
+
 							if (iy1 + 1 < Height)
 								Map[i + Width] = true;
-	
+
 							if (ix1 - 1 >= 0)
 								Map[i - 1] = true;
-								
+
 							if (iy1 - 1 >= 0)
 								Map[i - Width] = true;
 						}
-						
+
 						if ((sx >= 0F ? ix1 >= ix2 : ix1 <= ix2) && (sy >= 0F ? iy1 >= iy2 : iy1 <= iy2))
 							break;
-						
+
 						final float errorEx = error * 2F;
-						
+
 						if (errorEx > -dy)
 						{
 							error -= dy;
 							x1 += sx;
 						}
-						
+
 						if (errorEx < dx)
 						{
 							error += dx;
@@ -310,7 +310,7 @@ public class WorldState implements AutoCloseable
 				}
 
 			final ArrayList<Point> queue = new ArrayList<Point>(Size);
-	
+
 			// Fill between enemy cores and enemy-player graph edges
 			for (CoreBuild core : cores)
 				if (core.team != team)
@@ -318,23 +318,23 @@ public class WorldState implements AutoCloseable
 					int x = Math.round(core.x / tilesize);
 					int y = Math.round(core.y / tilesize);
 					int i = x + y * Width;
-	
+
 					queue.add(new Point(x, y, i));
-	
+
 					// Yes I hate recursion
 					while (queue.size() != 0)
 					{
 						final Point point = queue.remove(queue.size() - 1);
-	
+
 						x = point.x;
 						y = point.y;
 						i = point.i;
-	
+
 						if (x < 0 || y < 0 || x >= Width || y >= Height || Map[i])
 							continue;
-	
+
 						Map[i] = true;
-	
+
 						queue.add(new Point(x + 1, y, i + 1));
 						queue.add(new Point(x, y + 1, i + Width));
 						queue.add(new Point(x - 1, y, i - 1));
@@ -352,13 +352,13 @@ public class WorldState implements AutoCloseable
 				{
 					final int xMax = Math.min((int)Math.floor((core.x + tileRadius) / tilesize), Width - 1);
 					final int xMin = Math.max((int)Math.ceil((core.x - tileRadius) / tilesize), 0);
-	
+
 					final int yMax = Math.min((int)Math.floor((core.y + tileRadius) / tilesize), Height - 1);
 					final int yMin = Math.max((int)Math.ceil((core.y - tileRadius) / tilesize), 0);
-	
+
 					final int step = Width + xMin - xMax - 1;
 					float fy = (float)yMin * tilesize;
-	
+
 					// Yes I do not use float as loop counter
 					for (int y = yMin, i = xMin + yMin * Width; y <= yMax; ++y, i += step, fy += tilesize)
 					{
@@ -379,23 +379,23 @@ public class WorldState implements AutoCloseable
 			{
 				final Tile tile = tiles.geti(ii);
 				final Building build = tile.build;
-	
+
 				// Check one building only once (build.tile != tile)
 				if (build == null || build.team == team || build.tile != tile)
 					continue;
-	
+
 				final float tileRadius = tileRadiusEx + build.hitSize() / 2F;
 				final float tileRadiusSquare = tileRadius * tileRadius;
-	
+
 				final int xMax = Math.min((int)Math.floor((build.x + tileRadius) / tilesize), Width - 1);
 				final int xMin = Math.max((int)Math.ceil((build.x - tileRadius) / tilesize), 0);
-	
+
 				final int yMax = Math.min((int)Math.floor((build.y + tileRadius) / tilesize), Height - 1);
 				final int yMin = Math.max((int)Math.ceil((build.y - tileRadius) / tilesize), 0);
-	
+
 				final int step = Width + xMin - xMax - 1;
 				float fy = (float)yMin * tilesize;
-	
+
 				// Yes I do not use float as loop counter
 				for (int y = yMin, i = xMin + yMin * Width; y <= yMax; ++y, i += step, fy += tilesize)
 				{
@@ -412,10 +412,10 @@ public class WorldState implements AutoCloseable
 				if (!Map[i])
 				{
 					final Tile tile = tiles.geti(i);
-					
+
 					final Block block = tile.block();
 					final Floor floor = tile.floor();
-					
+
 					Map[i] = !block.alwaysReplace || !floor.placeableOn || floor.isDeep() || !tile.interactable(team) || (Vars.state.rules.fog
 						&& Vars.state.rules.staticFog && !Vars.fogControl.isDiscovered(team, x, y)) || Vars.world.getDarkness(x, y) >= 3;
 				}

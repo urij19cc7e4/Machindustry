@@ -34,59 +34,59 @@ import arc.math.Mathf;
 import arc.util.Tmp;
 
 public class Machindustry extends Mod {
-    private Tile tile1 = null;
-    private Tile tile2 = null;
-    private boolean build = false;
+	private Tile tile1 = null;
+	private Tile tile2 = null;
+	private boolean build = false;
 
-    public Machindustry() {
-        System.out.println("Hello");
-        Core.input.addProcessor(new InputProcessor() {
-            public boolean keyDown(KeyCode keycode) {
-                if (keycode == KeyCode.l) {
-                    build = !build;
-                    return true;
-                }
-                return false;
-            }
-        });
-        Events.on(EventType.TapEvent.class, event -> {
-            if (build)
-            {
-            if (tile1 == null)
-                tile1 = event.tile;
-            else
-            {
-                Unit unit = Vars.player.unit();
+	public Machindustry() {
+		System.out.println("Hello");
+		Core.input.addProcessor(new InputProcessor() {
+			public boolean keyDown(KeyCode keycode) {
+				if (keycode == KeyCode.l) {
+					build = !build;
+					return true;
+				}
+				return false;
+			}
+		});
+		Events.on(EventType.TapEvent.class, event -> {
+			if (build)
+			{
+			if (tile1 == null)
+				tile1 = event.tile;
+			else
+			{
+				Unit unit = Vars.player.unit();
 
 				WorldState validPlace = null;
-                try {
-                    validPlace = new WorldState(Vars.world.height(), Vars.world.width());
-                } catch (Exception e) {
-                    // TODO Auto-generated catch block
-                    e.printStackTrace();
-                }
-                SolidPathFinder pathFinder = new SolidPathFinder(Vars.world.height(), Vars.world.width());
+				try {
+					validPlace = new WorldState(Vars.world.height(), Vars.world.width());
+				} catch (Exception e) {
+					// TODO Auto-generated catch block
+					e.printStackTrace();
+				}
+				BeamPathFinder pathFinder = new BeamPathFinder(Vars.world.height(), Vars.world.width());
 				validPlace.UpdateMap();
-                pathFinder.UpdateMap(validPlace.Map);
-                pathFinder.UpdateMap(validPlace.BuildPlans);
-                LinkedList<BuildPlan> buildPath = pathFinder.BuildPath(tile1, event.tile, false);
-                tile1 = null;
-                tile2 = null;
+				pathFinder.UpdateMap(validPlace.Map);
+				pathFinder.UpdateMap(validPlace.BuildPlans);
+				LinkedList<BuildPlan> buildPath = pathFinder.BuildPath(tile1, event.tile, false);
+				tile1 = null;
+				tile2 = null;
 
-                if (buildPath != null)
-                    for (BuildPlan buildPlan : buildPath)
-                        unit.addBuild(buildPlan);
-            }
-            }
+				if (buildPath != null)
+					for (BuildPlan buildPlan : buildPath)
+						unit.addBuild(buildPlan);
+			}
+			}
 
-            // System.out.println(event.tile.build);
-            // if (event.tile.build != null)
-            // {
-            //     System.out.println(event.tile.build.tile == event.tile);
-            //     System.out.println(event.tile.block().offset);
-            //     System.out.println(event.tile.block().sizeOffset);
-            // }
-            //createRandomBeamNode();
-        });
-    }
+			// System.out.println(event.tile.build);
+			// if (event.tile.build != null)
+			// {
+			//     System.out.println(event.tile.build.tile == event.tile);
+			//     System.out.println(event.tile.block().offset);
+			//     System.out.println(event.tile.block().sizeOffset);
+			// }
+			//createRandomBeamNode();
+		});
+	}
 }

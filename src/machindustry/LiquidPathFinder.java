@@ -99,7 +99,7 @@ public class LiquidPathFinder
 	/**
 	 * Can through with junction but not bridge or conduit
 	*/
-    private static final byte INVISIBLE = (byte)-1;
+	private static final byte INVISIBLE = (byte)-1;
 
 	/**
 	 * Can not through with bridge, conduit or junction
@@ -198,6 +198,7 @@ public class LiquidPathFinder
 		// Check oMap to prevent mixing liquids due to unforseen input
 		// Check pMap to prevent path nodes collision
 		// Check rMap to prevent stucking in dead-end
+		// Check vMap to prevent junction collision
 		if (x1 + 1 < _width)
 		{
 			final int right_1_1 = idx + 1;
@@ -386,6 +387,7 @@ public class LiquidPathFinder
 		// Check oMap to prevent mixing liquids due to unforseen input
 		// Check pMap to prevent path nodes collision
 		// Check rMap to prevent stucking in dead-end
+		// Check vMap to prevent junction collision
 		if (y1 + 1 < _height)
 		{
 			final int width4 = _width * 4;
@@ -412,7 +414,7 @@ public class LiquidPathFinder
 				// Check if invisible rotation same as evaluated
 				if (_map[idx] == INVISIBLE && !vMap[idx])
 					return false;
-					
+
 				// Check if liquids output block is behind
 				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && y1 - 1 >= 0 && oMap[bottom_1_1])
@@ -576,6 +578,7 @@ public class LiquidPathFinder
 		// Check oMap to prevent mixing liquids due to unforseen input
 		// Check pMap to prevent path nodes collision
 		// Check rMap to prevent stucking in dead-end
+		// Check vMap to prevent junction collision
 		if (x1 - 1 >= 0)
 		{
 			final int left_1_1 = idx - 1;
@@ -600,7 +603,7 @@ public class LiquidPathFinder
 				// Check if invisible rotation same as evaluated
 				if (_map[idx] == INVISIBLE && vMap[idx])
 					return false;
-					
+
 				// Check if liquids output block is behind
 				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && x1 + 1 < _width && oMap[right_1_1])
@@ -764,6 +767,7 @@ public class LiquidPathFinder
 		// Check oMap to prevent mixing liquids due to unforseen input
 		// Check pMap to prevent path nodes collision
 		// Check rMap to prevent stucking in dead-end
+		// Check vMap to prevent junction collision
 		if (y1 - 1 >= 0)
 		{
 			final int width4 = _width * 4;
@@ -790,7 +794,7 @@ public class LiquidPathFinder
 				// Check if invisible rotation same as evaluated
 				if (_map[idx] == INVISIBLE && !vMap[idx])
 					return false;
-					
+
 				// Check if liquids output block is behind
 				// pStep == 1 is to let first tile conduit accept input and bridge cross danger building
 				if ((_map[idx] == COLLIDE || _map[idx] == DANGER) && pStep == 1 && y1 + 1 < _height && oMap[upper_1_1])
@@ -1126,25 +1130,25 @@ public class LiquidPathFinder
 			}
 		}
 		// Junction outputs to bridge and conduit so make blocks around
-        else if (b == Blocks.reinforcedLiquidJunction)
-        {
+		else if (b == Blocks.reinforcedLiquidJunction)
+		{
 			final int right = i + 1;
 			final int upper = i + _width;
 			final int left = i - 1;
 			final int bottom = i - _width;
 
-            if (x < _width - 1 && _map[right] != INVISIBLE && _map[right] != PROTECT)
+			if (x < _width - 1 && _map[right] != INVISIBLE && _map[right] != PROTECT)
 				_map[right] = BLOCK;
 
-            if (y < _height - 1 && _map[upper] != INVISIBLE && _map[upper] != PROTECT)
+			if (y < _height - 1 && _map[upper] != INVISIBLE && _map[upper] != PROTECT)
 				_map[upper] = BLOCK;
 
-            if (x > 0 && _map[left] != INVISIBLE && _map[left] != PROTECT)
+			if (x > 0 && _map[left] != INVISIBLE && _map[left] != PROTECT)
 				_map[left] = BLOCK;
 
-            if (y > 0 && _map[bottom] != INVISIBLE && _map[bottom] != PROTECT)
+			if (y > 0 && _map[bottom] != INVISIBLE && _map[bottom] != PROTECT)
 				_map[bottom] = BLOCK;
-        }
+		}
 		// Make connected to building tiles danger
 		else
 		{
@@ -1337,7 +1341,7 @@ public class LiquidPathFinder
 			throw new NullPointerException("Vars.world.tiles is null");
 
 		// Check if first tile equal to tile after last tile of path
-		if (x1 == x2 && y1 == y2)
+		if (idx1 == idx2)
 			return new LinkedList<BuildPlan>();
 
 		// Check if first tile is unbuildable
@@ -1353,7 +1357,7 @@ public class LiquidPathFinder
 	 	 * Stores path nodes during path evaluation
 		*/
 		ArrayList<PathNode> pathNodes1 = new ArrayList<PathNode>(_size);
-		
+
 		/**
 	 	 * Stores path nodes during path reduction
 		*/
@@ -1781,7 +1785,7 @@ public class LiquidPathFinder
 					// If failed to start pathing in mustRotate direction then allow bridging and make another attempt
 					if (mustRotate != -1 && mRotate == -1 && firstAttempt)
 					{
-            			if (x1 < _width - 1)
+						if (x1 < _width - 1)
 						{
 							int pidx4 = idx4 + 4;
 							pMap[idx + 1] = true;
@@ -1792,7 +1796,7 @@ public class LiquidPathFinder
 							rMap[pidx4 + BOTTOM] = true;
 						}
 
-            			if (y1 < _height - 1)
+						if (y1 < _height - 1)
 						{
 							int pidx4 = idx4 + _width * 4;
 							pMap[idx + _width] = true;
@@ -1803,7 +1807,7 @@ public class LiquidPathFinder
 							rMap[pidx4 + BOTTOM] = true;
 						}
 
-            			if (x1 > 0)
+						if (x1 > 0)
 						{
 							int pidx4 = idx4 - 4;
 							pMap[idx - 1] = true;
@@ -1814,7 +1818,7 @@ public class LiquidPathFinder
 							rMap[pidx4 + BOTTOM] = true;
 						}
 
-            			if (y1 > 0)
+						if (y1 > 0)
 						{
 							int pidx4 = idx4 - _width * 4;
 							pMap[idx - _width] = true;
@@ -2104,7 +2108,7 @@ public class LiquidPathFinder
 		// Not rotate first tile if must rotate is defined
 		if (mustRotate != -1)
 			pathNodes2.add(pathNodes1.get(0));
-		
+
 		// Path reduction
 		for (int i = mustRotate == -1 ? 0 : 1; i < pathNodes1.size(); ++i)
 		{
@@ -2438,7 +2442,7 @@ public class LiquidPathFinder
 								_map[i] = BLOCK;
 				}
 			}
-			
+
 		// Not update breaking plans because can not use their space until they are finished
 		// Divide empty tiles nearby buildings on map
 		for (BuildPlan buildPlan : buildPlans)

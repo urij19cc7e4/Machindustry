@@ -1345,7 +1345,7 @@ public class SolidPathFinder
 			throw new NullPointerException("Vars.world.tiles is null");
 
 		// Check if first tile equal to tile after last tile of path
-		if (x1 == x2 && y1 == y2)
+		if (idx1 == idx2)
 			return new LinkedList<BuildPlan>();
 
 		// Check if first tile is unbuildable
@@ -1361,7 +1361,7 @@ public class SolidPathFinder
 	 	 * Stores path nodes during path evaluation
 		*/
 		ArrayList<PathNode> pathNodes1 = new ArrayList<PathNode>(_size);
-		
+
 		/**
 	 	 * Stores path nodes during path reduction
 		*/
@@ -2032,7 +2032,7 @@ public class SolidPathFinder
 		}
 
 		PathNode pPathNode = null;
-		
+
 		// Path reduction
 		for (int i = 0; i < pathNodes1.size(); ++i)
 		{
@@ -2313,7 +2313,7 @@ public class SolidPathFinder
 			else
 				_map[i] = EMPTY;
 
-			oMap[i] = block.outputsItems() && !block.outputsPayload;
+			oMap[i] = block.outputsItems();
 		}
 
 		// Divide empty tiles into collide, damage, danger, block and empty tiles
@@ -2340,7 +2340,7 @@ public class SolidPathFinder
 
 						// Check one building only once (build.tile == tile)
 						// Check blocks that output items but not payloads (like T2/T3 factories)
-						if (build.tile == tile && block.outputsItems() && !block.outputsPayload)
+						if (build.tile == tile && block.outputsItems())
 							ProcessBlock(block, build.rotation, x, y, i);
 					}
 				}
@@ -2373,7 +2373,7 @@ public class SolidPathFinder
 
 					final int step = _width + x1 - x2;
 
-					if (block.outputsItems() && !block.outputsPayload)
+					if (block.outputsItems())
 						for (int y = y1, i = x1 + y1 * _width; y < y2; ++y, i += step)
 							for (int x = x1; x < x2; ++x, ++i)
 							{
@@ -2386,7 +2386,7 @@ public class SolidPathFinder
 								_map[i] = BLOCK;
 				}
 			}
-			
+
 		// Not update breaking plans because can not use their space until they are finished
 		// Divide empty tiles nearby buildings on map
 		for (BuildPlan buildPlan : buildPlans)
@@ -2397,7 +2397,7 @@ public class SolidPathFinder
 
 				if (block == Blocks.ductBridge)
 					ProcessProtect(buildPlan.rotation, buildPlan.x, buildPlan.y, idx);
-				else if (block.outputsItems() && !block.outputsPayload)
+				else if (block.outputsItems())
 					ProcessBlock(block, buildPlan.rotation, buildPlan.x, buildPlan.y, idx);
 			}
 	}
