@@ -79,9 +79,14 @@ public class BeamPathFinder
 	private final byte[] _map;
 
 	/**
+	 * Internal masked tile state map
+	*/
+	private final byte[] aMap;
+
+	/**
 	 * Internal energy buildings index map
 	*/
-	private final int[] iMap;
+	private final int[] eMap;
 
 	/**
 	 * How much evaluations done before timer check
@@ -94,190 +99,6 @@ public class BeamPathFinder
 	public long BuildTime = (long)-1;
 
 	/**
-	 * Evaluates the possibility of turning the path to the right and the distance to the target.
-	 * Parameters are almost equal to BuildPath's local variables
-	*/
-	private boolean EvaluateRightRotate
-	(
-		final PathNode pathNode,
-		final boolean[] pMap,
-		final int idx,
-		final int x1,
-		final int y1,
-		final int x2,
-		final int y2
-	)
-	{
-		final int xMax = x1 + 10;
-		final int xMin = x1 + 1;
-
-		final int yAbs = Math.abs(y1 - y2);
-
-		final boolean energy = _map[idx] == ENERGY;
-		final int index = iMap[idx];
-
-		boolean result = false;
-
-		for (int x = xMin, i = idx + 1; x <= xMax; ++x, ++i)
-			if (x < _width && (!energy || _map[i] != ENERGY || (x == xMin && iMap[i] == index)))
-			{
-				final int distance = Math.abs(x - x2) + yAbs;
-
-				if (pathNode.r > distance && !pMap[i])
-				{
-					pathNode.r = distance;
-					pathNode.s = x - x1;
-					result = true;
-				}
-
-				if (_map[i] == ENERGY)
-					break;
-			}
-			else
-				break;
-
-		return result;
-	}
-
-	/**
-	 * Evaluates the possibility of turning the path to the upper and the distance to the target.
-	 * Parameters are almost equal to BuildPath's local variables
-	*/
-	private boolean EvaluateUpperRotate
-	(
-		final PathNode pathNode,
-		final boolean[] pMap,
-		final int idx,
-		final int x1,
-		final int y1,
-		final int x2,
-		final int y2
-	)
-	{
-		final int yMax = y1 + 10;
-		final int yMin = y1 + 1;
-
-		final int xAbs = Math.abs(x1 - x2);
-
-		final boolean energy = _map[idx] == ENERGY;
-		final int index = iMap[idx];
-
-		boolean result = false;
-
-		for (int y = yMin, i = idx + _width; y <= yMax; ++y, i += _width)
-			if (y < _height && (!energy || _map[i] != ENERGY || (y == yMin && iMap[i] == index)))
-			{
-				final int distance = xAbs + Math.abs(y - y2);
-
-				if (pathNode.r > distance && !pMap[i])
-				{
-					pathNode.r = distance;
-					pathNode.s = y - y1;
-					result = true;
-				}
-
-				if (_map[i] == ENERGY)
-					break;
-			}
-			else
-				break;
-
-		return result;
-	}
-
-	/**
-	 * Evaluates the possibility of turning the path to the left and the distance to the target.
-	 * Parameters are almost equal to BuildPath's local variables
-	*/
-	private boolean EvaluateLeftRotate
-	(
-		final PathNode pathNode,
-		final boolean[] pMap,
-		final int idx,
-		final int x1,
-		final int y1,
-		final int x2,
-		final int y2
-	)
-	{
-		final int xMax = x1 - 1;
-		final int xMin = x1 - 10;
-
-		final int yAbs = Math.abs(y1 - y2);
-
-		final boolean energy = _map[idx] == ENERGY;
-		final int index = iMap[idx];
-
-		boolean result = false;
-
-		for (int x = xMax, i = idx - 1; x >= xMin; --x, --i)
-			if (x >= 0 && (!energy || _map[i] != ENERGY || (x == xMax && iMap[i] == index)))
-			{
-				final int distance = Math.abs(x - x2) + yAbs;
-
-				if (pathNode.r > distance && !pMap[i])
-				{
-					pathNode.r = distance;
-					pathNode.s = x1 - x;
-					result = true;
-				}
-
-				if (_map[i] == ENERGY)
-					break;
-			}
-			else
-				break;
-
-		return result;
-	}
-
-	/**
-	 * Evaluates the possibility of turning the path to the bottom and the distance to the target.
-	 * Parameters are almost equal to BuildPath's local variables
-	*/
-	private boolean EvaluateBottomRotate
-	(
-		final PathNode pathNode,
-		final boolean[] pMap,
-		final int idx,
-		final int x1,
-		final int y1,
-		final int x2,
-		final int y2
-	)
-	{
-		final int yMax = y1 - 1;
-		final int yMin = y1 - 10;
-
-		final int xAbs = Math.abs(x1 - x2);
-
-		final boolean energy = _map[idx] == ENERGY;
-		final int index = iMap[idx];
-
-		boolean result = false;
-
-		for (int y = yMax, i = idx - _width; y >= yMin; --y, i -= _width)
-			if (y >= 0 && (!energy || _map[i] != ENERGY || (y == yMax && iMap[i] == index)))
-			{
-				final int distance = xAbs + Math.abs(y - y2);
-
-				if (pathNode.r > distance && !pMap[i])
-				{
-					pathNode.r = distance;
-					pathNode.s = y1 - y;
-					result = true;
-				}
-
-				if (_map[i] == ENERGY)
-					break;
-			}
-			else
-				break;
-
-		return result;
-	}
-
-	/**
 	 * Protects beam tower from shortening its range with beam node
 	 * @param x - building x coordinate
 	 * @param y - building y coordinate
@@ -285,10 +106,10 @@ public class BeamPathFinder
 	*/
 	private void ProcessTower(final int x, final int y, final int i)
 	{
-		int xMax = x + 13;
-		int xMin = x + 2;
+		int max = x + 13;
+		int min = x + 2;
 
-		for (int ix = xMin, ii = i + 2; ix <= xMax; ++ix, ++ii)
+		for (int ix = min, ii = i + 2; ix <= max; ++ix, ++ii)
 			if (ix < _width)
 			{
 				if (_map[ii] != ENERGY)
@@ -297,10 +118,10 @@ public class BeamPathFinder
 			else
 				break;
 
-		int yMax = y + 13;
-		int yMin = y + 2;
+		max = y + 13;
+		min = y + 2;
 
-		for (int iy = yMin, ii = i + _width * 2; iy <= yMax; ++iy, ii += _width)
+		for (int iy = min, ii = i + _width * 2; iy <= max; ++iy, ii += _width)
 			if (iy < _height)
 			{
 				if (_map[ii] != ENERGY)
@@ -309,10 +130,10 @@ public class BeamPathFinder
 			else
 				break;
 
-		xMax = x - 2;
-		xMin = x - 13;
+		max = x - 2;
+		min = x - 13;
 
-		for (int ix = xMax, ii = i - 2; ix >= xMin; --ix, --ii)
+		for (int ix = max, ii = i - 2; ix >= min; --ix, --ii)
 			if (ix >= 0)
 			{
 				if (_map[ii] != ENERGY)
@@ -322,10 +143,10 @@ public class BeamPathFinder
 				break;
 
 
-		yMax = y - 2;
-		yMin = y - 13;
+		max = y - 2;
+		min = y - 13;
 
-		for (int iy = yMax, ii = i - _width * 2; iy >= yMin; --iy, ii -= _width)
+		for (int iy = max, ii = i - _width * 2; iy >= min; --iy, ii -= _width)
 			if (iy >= 0)
 			{
 				if (_map[ii] != ENERGY)
@@ -341,7 +162,8 @@ public class BeamPathFinder
 		_width = width;
 		_size = height * width;
 		_map = new byte[_size];
-		iMap = new int[_size];
+		aMap = new byte[_size];
+		eMap = new int[_size];
 	}
 
 	public BeamPathFinder(int height, int width, long freq, long time)
@@ -361,7 +183,7 @@ public class BeamPathFinder
 	*/
 	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, boolean targetMode)
 	{
-		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, targetMode, null, -1, -1, -1, -1);
+		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, targetMode, null);
 	}
 
 	/**
@@ -375,7 +197,7 @@ public class BeamPathFinder
 	*/
 	public LinkedList<BuildPlan> BuildPath(int x1, int y1, int x2, int y2, boolean targetMode)
 	{
-		return BuildPath(x1, y1, x2, y2, targetMode, null, -1, -1, -1, -1);
+		return BuildPath(x1, y1, x2, y2, targetMode, null);
 	}
 
 	/**
@@ -385,12 +207,10 @@ public class BeamPathFinder
 	 * @param tile2      - Last energy tile of the path (destination coordinates)
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	 * @param masks      - Boolean map that protects tiles from pathing
-	 * @param mtile      - Offset of the masks map from world origin (0, 0)
-	 * @param stile      - Sizes of the masks map
 	*/
-	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, boolean targetMode, boolean[] masks, Tile mtile, Tile stile)
+	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, boolean targetMode, boolean[] masks)
 	{
-		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, targetMode, masks, (int)mtile.x, (int)mtile.y, (int)stile.x, (int)stile.y);
+		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, targetMode, masks);
 	}
 
 	/**
@@ -402,33 +222,14 @@ public class BeamPathFinder
 	 * @param y2         - Last energy tile of the path (destination coordinate)
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	 * @param masks      - Boolean map that protects tiles from pathing
-	 * @param mx         - Horizontal offset of the masks map from world origin (0, 0)
-	 * @param my         - Vertical offset of the masks map from world origin (0, 0)
-	 * @param mh         - Height of the masks map
-	 * @param mw         - Width of the masks map
 	*/
-	public LinkedList<BuildPlan> BuildPath
-	(
-		int x1,
-		int y1,
-		final int x2,
-		final int y2,
-		final boolean targetMode,
-		final boolean[] masks,
-		final int mx,
-		final int my,
-		final int mh,
-		final int mw
-	)
+	public LinkedList<BuildPlan> BuildPath(int x1, int y1, final int x2, final int y2, final boolean targetMode, final boolean[] masks)
 	{
 		long startTime = System.nanoTime();
 		long evaluations = 0;
 
 		final int idx1 = x1 + y1 * _width;
 		final int idx2 = x2 + y2 * _width;
-		final int idx3 = mx + my * _width;
-
-		final int step = _width - mw;
 
 		final Tiles tiles = Vars.world.tiles;
 
@@ -450,6 +251,11 @@ public class BeamPathFinder
 		ArrayList<PathNode> pathNodes = new ArrayList<PathNode>(_size);
 
 		/**
+	 	 * Path nodes indices map. Stores -1 or index of valid path node. Filled right before reduction.
+		*/
+		final int[] iMap = new int[_size];
+
+		/**
 	 	 * Path nodes map. Stores false or true for unbuildable or visited tile.
 		*/
 		final boolean[] pMap = new boolean[_size];
@@ -459,31 +265,26 @@ public class BeamPathFinder
 		*/
 		final int[] evaluateRotateOrder = new int[4];
 
-		/**
-	 	 * Masked tiles states
-		*/
-		byte[] faces = null;
-
-		// Mask tiles with block
-		if (masks != null)
+		// Copy tiles
+		if (masks == null)
+			System.arraycopy(_map, 0, aMap, 0, _size);
+		// Copy masked with blocks tiles
+		else
 		{
-			faces = new byte[mh * mw];
-
-			for (int i = 0, k = 0, l = idx3; i < mh; ++i, l += step)
-				for (int j = 0; j < mw; ++j, ++k, ++l)
-					if (masks[k])
-					{
-						faces[k] = _map[l];
-
-						if (_map[l] != ENERGY)
-							_map[l] = BLOCK;
-					}
+			for (int i = 0; i < _size; ++i)
+				if (masks[i])
+					aMap[i] = _map[i] == ENERGY ? ENERGY : BLOCK;
+				else
+					aMap[i] = _map[i];
 		}
+
+		// Fill indices map with -1
+		Arrays.fill(iMap, -1);
 
 		// Map all blocked tiles to pMap
 		// Suppose Java initialized arrays with falses already
 		for (int i = 0; i < _size; ++i)
-			if (_map[i] == BLOCK)
+			if (aMap[i] == BLOCK)
 				pMap[i] = true;
 
 		int pRotate;
@@ -532,34 +333,34 @@ public class BeamPathFinder
 			int mRotate = -1;
 			int mStep = 0;
 
+			int hRotate1, hRotate2;
+			int vRotate1, vRotate2;
+
+			if (x1 < x2)
+			{
+				hRotate1 = RIGHT;
+				hRotate2 = LEFT;
+			}
+			else
+			{
+				hRotate1 = LEFT;
+				hRotate2 = RIGHT;
+			}
+
+			if (y1 < y2)
+			{
+				vRotate1 = UPPER;
+				vRotate2 = BOTTOM;
+			}
+			else
+			{
+				vRotate1 = BOTTOM;
+				vRotate2 = UPPER;
+			}
+
 			// If in target mode set direction to target
 			if (targetMode)
 			{
-				int hRotate1, hRotate2;
-				int vRotate1, vRotate2;
-
-				if (x1 < x2)
-				{
-					hRotate1 = RIGHT;
-					hRotate2 = LEFT;
-				}
-				else
-				{
-					hRotate1 = LEFT;
-					hRotate2 = RIGHT;
-				}
-
-				if (y1 < y2)
-				{
-					vRotate1 = UPPER;
-					vRotate2 = BOTTOM;
-				}
-				else
-				{
-					vRotate1 = BOTTOM;
-					vRotate2 = UPPER;
-				}
-
 				if (Math.abs(dx) > Math.abs(dy))
 				{
 					evaluateRotateOrder[0] = hRotate1;
@@ -580,47 +381,21 @@ public class BeamPathFinder
 			{
 				if (pRotate == RIGHT || pRotate == LEFT)
 				{
-					int vRotate1, vRotate2;
-
-					if (y1 < y2)
-					{
-						vRotate1 = UPPER;
-						vRotate2 = BOTTOM;
-					}
-					else
-					{
-						vRotate1 = BOTTOM;
-						vRotate2 = UPPER;
-					}
-
-					evaluateRotateOrder[0] = pRotate;
 					evaluateRotateOrder[1] = vRotate1;
 					evaluateRotateOrder[2] = vRotate2;
 				}
 				else // if (pRotate == UPPER || pRotate == BOTTOM)
 				{
-					int hRotate1, hRotate2;
-
-					if (x1 < x2)
-					{
-						hRotate1 = RIGHT;
-						hRotate2 = LEFT;
-					}
-					else
-					{
-						hRotate1 = LEFT;
-						hRotate2 = RIGHT;
-					}
-
-					evaluateRotateOrder[0] = pRotate;
 					evaluateRotateOrder[1] = hRotate1;
 					evaluateRotateOrder[2] = hRotate2;
 				}
 
-				if (evaluateRotateOrder[0] <= 1)
-					evaluateRotateOrder[3] = evaluateRotateOrder[0] + 2;
+				evaluateRotateOrder[0] = pRotate;
+
+				if (pRotate <= 1)
+					evaluateRotateOrder[3] = pRotate + 2;
 				else
-					evaluateRotateOrder[3] = evaluateRotateOrder[0] - 2;
+					evaluateRotateOrder[3] = pRotate - 2;
 			}
 
 			// _height + _width should be enought
@@ -634,31 +409,136 @@ public class BeamPathFinder
 			// mStep is stored in PathNode s field during evaluations
 			PathNode pathNode = new PathNode(_height + _width, mStep, x1, y1, idx);
 
+			/**
+			 * Let first tile rotate any direction
+			*/
 			final int aRotate = pathNodes.size() == 0 ? -1 : mRotate;
 			pMap[idx] = true;
+
+			final boolean energy = aMap[idx] == ENERGY;
+			final int index = eMap[idx];
+
+			final int xAbs = Math.abs(x1 - x2);
+			final int yAbs = Math.abs(y1 - y2);
 
 			for (int i = 0; i < 4; ++i)
 				switch (evaluateRotateOrder[i])
 				{
 					case RIGHT:
-						if (aRotate != LEFT && EvaluateRightRotate(pathNode, pMap, idx, x1, y1, x2, y2))
-							mRotate = RIGHT;
+					{
+						if (aRotate != LEFT)
+						{
+							final int xMax = x1 + 10;
+							final int xMin = x1 + 1;
+
+							for (int ix = xMin, ii = idx + 1; ix <= xMax; ++ix, ++ii)
+								if (ix < _width && (!energy || aMap[ii] != ENERGY || (ix == xMin && eMap[ii] == index)))
+								{
+									final int distance = Math.abs(ix - x2) + yAbs;
+
+									if (pathNode.r > distance && !pMap[ii])
+									{
+										pathNode.r = distance;
+										pathNode.s = ix - x1;
+										mRotate = RIGHT;
+									}
+
+									if (aMap[ii] == ENERGY)
+										break;
+								}
+								else
+									break;
+						}
+
 						break;
+					}
 
 					case UPPER:
-						if (aRotate != BOTTOM && EvaluateUpperRotate(pathNode, pMap, idx, x1, y1, x2, y2))
-							mRotate = UPPER;
+					{
+						if (aRotate != BOTTOM)
+						{
+							final int yMax = y1 + 10;
+							final int yMin = y1 + 1;
+
+							for (int iy = yMin, ii = idx + _width; iy <= yMax; ++iy, ii += _width)
+								if (iy < _height && (!energy || aMap[ii] != ENERGY || (iy == yMin && eMap[ii] == index)))
+								{
+									final int distance = xAbs + Math.abs(iy - y2);
+
+									if (pathNode.r > distance && !pMap[ii])
+									{
+										pathNode.r = distance;
+										pathNode.s = iy - y1;
+										mRotate = UPPER;
+									}
+
+									if (aMap[ii] == ENERGY)
+										break;
+								}
+								else
+									break;
+						}
+
 						break;
+					}
 
 					case LEFT:
-						if (aRotate != RIGHT && EvaluateLeftRotate(pathNode, pMap, idx, x1, y1, x2, y2))
-							mRotate = LEFT;
+					{
+						if (aRotate != RIGHT)
+						{
+							final int xMax = x1 - 1;
+							final int xMin = x1 - 10;
+
+							for (int ix = xMax, ii = idx - 1; ix >= xMin; --ix, --ii)
+								if (ix >= 0 && (!energy || aMap[ii] != ENERGY || (ix == xMax && eMap[ii] == index)))
+								{
+									final int distance = Math.abs(ix - x2) + yAbs;
+
+									if (pathNode.r > distance && !pMap[ii])
+									{
+										pathNode.r = distance;
+										pathNode.s = x1 - ix;
+										mRotate = LEFT;
+									}
+
+									if (aMap[ii] == ENERGY)
+										break;
+								}
+								else
+									break;
+						}
+
 						break;
+					}
 
 					case BOTTOM:
-						if (aRotate != UPPER && EvaluateBottomRotate(pathNode, pMap, idx, x1, y1, x2, y2))
-							mRotate = BOTTOM;
+					{
+						if (aRotate != UPPER)
+						{
+							final int yMax = y1 - 1;
+							final int yMin = y1 - 10;
+
+							for (int iy = yMax, ii = idx - _width; iy >= yMin; --iy, ii -= _width)
+								if (iy >= 0 && (!energy || aMap[ii] != ENERGY || (iy == yMax && eMap[ii] == index)))
+								{
+									final int distance = xAbs + Math.abs(iy - y2);
+
+									if (pathNode.r > distance && !pMap[ii])
+									{
+										pathNode.r = distance;
+										pathNode.s = y1 - iy;
+										mRotate = BOTTOM;
+									}
+
+									if (aMap[ii] == ENERGY)
+										break;
+								}
+								else
+									break;
+						}
+
 						break;
+					}
 
 					default:
 						break;
@@ -671,11 +551,7 @@ public class BeamPathFinder
 					return null;
 				else
 				{
-					final PathNode pPathNode = pathNodes.remove(pathNodes.size() - 1);
-
-					x1 = pPathNode.x;
-					y1 = pPathNode.y;
-					idx = pPathNode.i;
+					pathNodes.remove(pathNodes.size() - 1);
 
 					if (pathNodes.size() == 0)
 						pRotate = dRotate;
@@ -717,89 +593,84 @@ public class BeamPathFinder
 			}
 		}
 
-		final int[] pIndexMap = new int[_size];
-		Arrays.fill(pIndexMap, -1);
-
+		// Fill indices map
 		for (int i = 0; i < pathNodes.size(); ++i)
-		{
-			final PathNode pathNode = pathNodes.get(i);
-			pIndexMap[pathNode.x + pathNode.y * _width] = i;
-		}
+			iMap[pathNodes.get(i).i] = i;
 
 		// Path reduction
 		for (int i = 0; i < pathNodes.size(); ++i)
 		{
 			final PathNode pathNode = pathNodes.get(i);
-			final int idx = pathNode.x + pathNode.y * _width;
+			final int idx3 = pathNode.i;
 
-			final boolean energy = _map[idx] == ENERGY;
-			final int index = iMap[idx];
+			final boolean energy = aMap[idx3] == ENERGY;
+			final int index = eMap[idx3];
 
 			int j = i;
 
-			int xMax = pathNode.x + 10;
-			int xMin = pathNode.x + 1;
+			int max = pathNode.x + 10;
+			int min = pathNode.x + 1;
 
-			for (int ix = xMin, ii = idx + 1; ix <= xMax; ++ix, ++ii)
-				if (ix < _width && (!energy || _map[ii] != ENERGY || (ix == xMin && iMap[ii] == index)))
+			for (int ix = min, ii = idx3 + 1; ix <= max; ++ix, ++ii)
+				if (ix < _width && (!energy || aMap[ii] != ENERGY || (ix == min && eMap[ii] == index)))
 				{
-					int jj = pIndexMap[ii];
+					int jj = iMap[ii];
 
 					if (j < jj)
 						j = jj;
 
-					if (_map[ii] == ENERGY)
+					if (aMap[ii] == ENERGY)
 						break;
 				}
 				else
 					break;
 
-			int yMax = pathNode.y + 10;
-			int yMin = pathNode.y + 1;
+			max = pathNode.y + 10;
+			min = pathNode.y + 1;
 
-			for (int iy = yMin, ii = idx + _width; iy <= yMax; ++iy, ii += _width)
-				if (iy < _height && (!energy || _map[ii] != ENERGY || (iy == yMin && iMap[ii] == index)))
+			for (int iy = min, ii = idx3 + _width; iy <= max; ++iy, ii += _width)
+				if (iy < _height && (!energy || aMap[ii] != ENERGY || (iy == min && eMap[ii] == index)))
 				{
-					int jj = pIndexMap[ii];
+					int jj = iMap[ii];
 
 					if (j < jj)
 						j = jj;
 
-					if (_map[ii] == ENERGY)
+					if (aMap[ii] == ENERGY)
 						break;
 				}
 				else
 					break;
 
-			xMax = pathNode.x - 1;
-			xMin = pathNode.x - 10;
+			max = pathNode.x - 1;
+			min = pathNode.x - 10;
 
-			for (int ix = xMax, ii = idx - 1; ix >= xMin; --ix, --ii)
-				if (ix >= 0 && (!energy || _map[ii] != ENERGY || (ix == xMax && iMap[ii] == index)))
+			for (int ix = max, ii = idx3 - 1; ix >= min; --ix, --ii)
+				if (ix >= 0 && (!energy || aMap[ii] != ENERGY || (ix == max && eMap[ii] == index)))
 				{
-					int jj = pIndexMap[ii];
+					int jj = iMap[ii];
 
 					if (j < jj)
 						j = jj;
 
-					if (_map[ii] == ENERGY)
+					if (aMap[ii] == ENERGY)
 						break;
 				}
 				else
 					break;
 
-			yMax = pathNode.y - 1;
-			yMin = pathNode.y - 10;
+			max = pathNode.y - 1;
+			min = pathNode.y - 10;
 
-			for (int iy = yMax, ii = idx - _width; iy >= yMin; --iy, ii -= _width)
-				if (iy >= 0 && (!energy || _map[ii] != ENERGY || (iy == yMax && iMap[ii] == index)))
+			for (int iy = max, ii = idx3 - _width; iy >= min; --iy, ii -= _width)
+				if (iy >= 0 && (!energy || aMap[ii] != ENERGY || (iy == max && eMap[ii] == index)))
 				{
-					int jj = pIndexMap[ii];
+					int jj = iMap[ii];
 
 					if (j < jj)
 						j = jj;
 
-					if (_map[ii] == ENERGY)
+					if (aMap[ii] == ENERGY)
 						break;
 				}
 				else
@@ -808,7 +679,7 @@ public class BeamPathFinder
 			if (i != j)
 				i = j - 1;
 
-			if (_map[idx] != ENERGY)
+			if (aMap[idx3] != ENERGY)
 				buildPath.addLast(new BuildPlan(pathNode.x, pathNode.y, 0, Blocks.beamNode));
 		}
 
@@ -847,7 +718,7 @@ public class BeamPathFinder
 							ProcessTower(x, y, i);
 
 						_map[i] = ENERGY;
-						iMap[i] = build.tile.x + build.tile.y * _width;
+						eMap[i] = build.tile.x + build.tile.y * _width;
 					}
 					else
 						_map[i] = BLOCK;
@@ -897,7 +768,7 @@ public class BeamPathFinder
 							for (int x = x1; x < x2; ++x, ++i)
 							{
 								_map[i] = ENERGY;
-								iMap[i] = idx;
+								eMap[i] = idx;
 							}
 
 						if (block == Blocks.beamTower)
