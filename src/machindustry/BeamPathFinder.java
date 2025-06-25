@@ -102,7 +102,7 @@ public class BeamPathFinder
 	 * Protects beam tower from shortening its range with beam node
 	 * @param x - building x coordinate
 	 * @param y - building y coordinate
-	 * @param i - building linear coordinate
+	 * @param i - building linear index
 	*/
 	private void ProcessTower(final int x, final int y, final int i)
 	{

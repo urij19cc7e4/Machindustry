@@ -941,7 +941,7 @@ public class LiquidPathFinder
 	 * @param r - building rotation
 	 * @param x - building x coordinate
 	 * @param y - building y coordinate
-	 * @param i - building linear coordinate
+	 * @param i - building linear index
 	*/
 	private void ProcessProtect(final int r, final int x, final int y, final int i)
 	{
@@ -1078,7 +1078,7 @@ public class LiquidPathFinder
 	 * @param r - building rotation
 	 * @param x - building x coordinate
 	 * @param y - building y coordinate
-	 * @param i - building linear coordinate
+	 * @param i - building linear index
 	*/
 	private void ProcessBlock(final Block b, final int r, final int x, final int y, final int i)
 	{

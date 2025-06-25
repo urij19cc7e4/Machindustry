@@ -2,6 +2,7 @@ package machindustry;
 
 import java.lang.reflect.Field;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.concurrent.atomic.AtomicReference;
 
 import arc.Events;
@@ -151,20 +152,6 @@ public class WorldState implements AutoCloseable
 		}
 	}
 
-	private class Point
-	{
-		public int x;
-		public int y;
-		public int i;
-
-		public Point(int x, int y, int i)
-		{
-			this.x = x;
-			this.y = y;
-			this.i = i;
-		}
-	}
-
 	/**
 	 * INVOKE ONLY IN MAIN GAME THREAD
 	 * @throws Exception ARC events reflection access error
@@ -230,80 +217,83 @@ public class WorldState implements AutoCloseable
 		if (cores == null)
 			throw new NullPointerException("WorldState.cores is null");
 
+		Arrays.fill(Map, false);
+
 		if (Vars.state.rules.polygonCoreProtection)
 		{
-			final Vec2[] coresVec2s = new Vec2[cores.length];
+			final Vec2[] coresVecs = new Vec2[cores.length];
 
 			for (int i = 0; i < cores.length; ++i)
-				coresVec2s[i] = new Vec2(cores[i].x, cores[i].y);
+				coresVecs[i] = new Vec2(cores[i].x, cores[i].y);
 
-			final Seq<GraphEdge> edges = Voronoi.generate(coresVec2s, 0F, (float)Vars.world.unitWidth(), 0F, (float)Vars.world.unitHeight());
+			final Seq<GraphEdge> edges = Voronoi.generate(coresVecs, 0F, (float)Vars.world.unitWidth(), 0F, (float)Vars.world.unitHeight());
 
-			// Draw Bresenham line for each graph edge that is between enemy and player teams
+			// Voxel Traversal for each graph edge that is between enemy and player teams
 			for (GraphEdge edge : edges)
 				if (cores[edge.site1].team == team ^ cores[edge.site2].team == team)
 				{
-					float x1 = edge.x1;
-					float y1 = edge.y1;
+					// Edges coordinates are center-based not corner-based
+					final float ex1 = edge.x1 / tilesize + 0.5F;
+					final float ey1 = edge.y1 / tilesize + 0.5F;
 
-					final float x2 = edge.x2;
-					final float y2 = edge.y2;
+					// Edges coordinates are center-based not corner-based
+					final float ex2 = edge.x2 / tilesize + 0.5F;
+					final float ey2 = edge.y2 / tilesize + 0.5F;
 
-					if (x1 == x2 && y1 == y2)
-						continue;
+					int x1 = (int)Math.floor(ex1);
+					int y1 = (int)Math.floor(ey1);
 
-					final float dx = Math.abs(x1 - x2);
-					final float dy = Math.abs(y1 - y2);
+					final int x2 = (int)Math.floor(ex2);
+					final int y2 = (int)Math.floor(ey2);
 
-					final float sx = (x1 < x2) ? tilesize : -tilesize;
-					final float sy = (y1 < y2) ? tilesize : -tilesize;
+					final int sx = x1 < x2 ? 1 : -1;
+					final int sy = y1 < y2 ? 1 : -1;
 
-					final int ix2 = Math.round(x2 / tilesize);
-					final int iy2 = Math.round(y2 / tilesize);
+					final float dtx = x1 == x2 ? Float.POSITIVE_INFINITY : Math.abs(tilesize / (edge.x1 - edge.x2));
+					final float dty = y1 == y2 ? Float.POSITIVE_INFINITY : Math.abs(tilesize / (edge.y1 - edge.y2));
 
-					float error = dx - dy;
+					float mtx = x1 == x2 ? Float.POSITIVE_INFINITY : (x1 < x2 ? 1F - (ex1 - (float)x1) : ex1 - (float)x1) * dtx;
+					float mty = y1 == y2 ? Float.POSITIVE_INFINITY : (y1 < y2 ? 1F - (ey1 - (float)y1) : ey1 - (float)y1) * dty;
 
-					while (true)
+					while (x1 >= 0 && x1 < Width && y1 >= 0 && y1 < Height)
 					{
-						// Do you also hate 'to nearest even' rounding? Let's hate together
-						final int ix1 = Math.round(x1 / tilesize);
-						final int iy1 = Math.round(y1 / tilesize);
-
-						if (ix1 < 0 || iy1 < 0 || ix1 >= Width || iy1 >= Height)
-							break;
-
-						final int i = ix1 + iy1 * Width;
+						final int i = x1 + y1 * Width;
 						Map[i] = true;
 
 						if (PolygonSafeZone)
 						{
-							if (ix1 + 1 < Width)
+							if (x1 + 1 < Width)
 								Map[i + 1] = true;
 
-							if (iy1 + 1 < Height)
+							if (y1 + 1 < Height)
 								Map[i + Width] = true;
 
-							if (ix1 - 1 >= 0)
+							if (x1 - 1 >= 0)
 								Map[i - 1] = true;
 
-							if (iy1 - 1 >= 0)
+							if (y1 - 1 >= 0)
 								Map[i - Width] = true;
 						}
 
-						if ((sx >= 0F ? ix1 >= ix2 : ix1 <= ix2) && (sy >= 0F ? iy1 >= iy2 : iy1 <= iy2))
+						if (x1 == x2 && y1 == y2)
 							break;
 
-						final float errorEx = error * 2F;
-
-						if (errorEx > -dy)
+						if (mtx < mty)
 						{
-							error -= dy;
+							mtx += dtx;
 							x1 += sx;
 						}
-
-						if (errorEx < dx)
+						else if (mtx > mty)
 						{
-							error += dx;
+							mty += dty;
+							y1 += sy;
+						}
+						else
+						{
+							mtx += dtx;
+							x1 += sx;
+
+							mty += dty;
 							y1 += sy;
 						}
 					}
@@ -330,7 +320,7 @@ public class WorldState implements AutoCloseable
 						y = point.y;
 						i = point.i;
 
-						if (x < 0 || y < 0 || x >= Width || y >= Height || Map[i])
+						if (x < 0 || x >= Width || y < 0 || y >= Height || Map[i])
 							continue;
 
 						Map[i] = true;
@@ -373,6 +363,7 @@ public class WorldState implements AutoCloseable
 		if (Vars.state.rules.placeRangeCheck)
 		{
 			// Do not ask why slag incinerator
+			// Why 4F? Look Build.getEnemyOverlap. May be it is tilesize / 2
 			final float tileRadiusEx = Blocks.slagIncinerator.placeOverlapRange + RadiusSafeZone * tilesize + 4F;
 
 			for (int ii = 0; ii < Size; ++ii)
@@ -416,8 +407,9 @@ public class WorldState implements AutoCloseable
 					final Block block = tile.block();
 					final Floor floor = tile.floor();
 
-					Map[i] = !block.alwaysReplace || !floor.placeableOn || floor.isDeep() || !tile.interactable(team) || (Vars.state.rules.fog
-						&& Vars.state.rules.staticFog && !Vars.fogControl.isDiscovered(team, x, y)) || Vars.world.getDarkness(x, y) >= 3;
+					if (!block.alwaysReplace || !floor.placeableOn || floor.isDeep() || !tile.interactable(team) || (Vars.state.rules.fog
+						&& Vars.state.rules.staticFog && !Vars.fogControl.isDiscovered(team, x, y)) || Vars.world.getDarkness(x, y) >= 3)
+						Map[i] = true;
 				}
 	}
 

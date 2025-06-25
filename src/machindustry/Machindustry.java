@@ -50,6 +50,11 @@ public class Machindustry extends Mod {
 			}
 		});
 		Events.on(EventType.TapEvent.class, event -> {
+			System.out.print(event.tile.drop());
+			System.out.print("\t");
+			System.out.print(event.tile.wallDrop());
+			System.out.print("\t");
+			System.out.println(event.tile.solid());
 			if (build)
 			{
 			if (tile1 == null)
