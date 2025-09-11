@@ -92,6 +92,16 @@ public class WorldState implements AutoCloseable
 	public float RadiusSafeZone = 1F;
 
 	/**
+	 * Run in main game thread after world state update
+	*/
+	public Runnable AfterUpdateFunc = null;
+
+	/**
+	 * Run in main game thread before world state update
+	*/
+	public Runnable BeforeUpdateFunc = null;
+
+	/**
 	 * Interacts with game data in main game thread.
 	 * BuildPlansMachinary field is copied to player building plans.
 	 * Player building plans are copied to BuildPlans field.
@@ -99,6 +109,12 @@ public class WorldState implements AutoCloseable
 	*/
 	private void MainGameThreadUpdate()
 	{
+		Runnable afterUpdateFunc = AfterUpdateFunc;
+		Runnable beforeUpdateFunc = BeforeUpdateFunc;
+
+		if (beforeUpdateFunc != null)
+			beforeUpdateFunc.run();
+
 		final Seq<TeamData> teams = Vars.state.teams.active;
 		final Queue<BuildPlan> queue = Vars.player.unit().plans;
 
@@ -137,6 +153,9 @@ public class WorldState implements AutoCloseable
 
 		_cores = cores;
 		BuildPlans = buildPlans;
+
+		if (afterUpdateFunc != null)
+			afterUpdateFunc.run();
 	}
 
 	@Override
@@ -154,9 +173,8 @@ public class WorldState implements AutoCloseable
 
 	/**
 	 * INVOKE ONLY IN MAIN GAME THREAD
-	 * @throws Exception ARC events reflection access error
 	*/
-	public WorldState(int height, int width) throws Exception
+	public WorldState(int height, int width)
 	{
 		Height = height;
 		Width = width;
@@ -175,23 +193,31 @@ public class WorldState implements AutoCloseable
 		}
 		catch (Exception e)
 		{
-			System.err.println("ARC events reflection access error");
+			System.err.println("[Machindustry] WorldState: ARC events reflection access error");
 			e.printStackTrace();
-
-			throw new Exception("ARC events reflection access error");
 		}
 	}
 
 	/**
 	 * INVOKE ONLY IN MAIN GAME THREAD
-	 * @throws Exception ARC events reflection access error
 	*/
-	public WorldState(int height, int width, boolean polygonSZ, float radiusSZ) throws Exception
+	public WorldState(int height, int width, boolean polygonSZ, float radiusSZ)
 	{
 		this(height, width);
 
 		PolygonSafeZone = polygonSZ;
 		RadiusSafeZone = radiusSZ;
+	}
+
+	/**
+	 * INVOKE ONLY IN MAIN GAME THREAD
+	*/
+	public WorldState(int height, int width, boolean polygonSZ, float radiusSZ, Runnable after, Runnable before)
+	{
+		this(height, width, polygonSZ, radiusSZ);
+
+		AfterUpdateFunc = after;
+		BeforeUpdateFunc = before;
 	}
 
 	/**
@@ -201,7 +227,6 @@ public class WorldState implements AutoCloseable
 	*/
 	public void UpdateMap()
 	{
-		MainGameThreadUpdate();
 		final Team team = Vars.player.team();
 		final Tiles tiles = Vars.world.tiles;
 
@@ -415,16 +440,15 @@ public class WorldState implements AutoCloseable
 
 	/**
 	 * INVOKE ONLY IN MAIN GAME THREAD
-	 * @throws Exception ARC events reflection access error
 	*/
 	@Override
-	public void close() throws Exception
+	public void close()
 	{
 		if (!_closed)
 		{
 			// Print warning because close might be silently invoked by garbage collector
 			if (_threadID != Thread.currentThread().getId())
-				System.err.println("WorldState: constructor's and close's threads ids do not match");
+				System.err.println("[Machindustry] WorldState: constructor's and close's threads ids do not match");
 
 			try
 			{
@@ -438,10 +462,8 @@ public class WorldState implements AutoCloseable
 			}
 			catch (Exception e)
 			{
-				System.err.println("ARC events reflection access error");
+				System.err.println("[Machindustry] WorldState: ARC events reflection access error");
 				e.printStackTrace();
-
-				throw new Exception("ARC events reflection access error");
 			}
 
 			_closed = true;

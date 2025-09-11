@@ -89,6 +89,26 @@ public class BeamPathFinder
 	private final int[] eMap;
 
 	/**
+	 * Path nodes indices map. Stores -1 or index of valid path node.
+	*/
+	private final int[] iMap;
+
+	/**
+	 * Path nodes map. Stores false or true for valid path node.
+	*/
+	private final boolean[] pMap;
+
+	/**
+	 * Stores path nodes during path evaluation
+	*/
+	private final ArrayList<PathNode> pathNodes1;
+
+	/**
+	 * Stores path nodes during path reduction
+	*/
+	private final ArrayList<PathNode> pathNodes2;
+
+	/**
 	 * How much evaluations done before timer check
 	*/
 	public long Frequency = (long)-1;
@@ -164,6 +184,10 @@ public class BeamPathFinder
 		_map = new byte[_size];
 		aMap = new byte[_size];
 		eMap = new int[_size];
+		iMap = new int[_size];
+		pMap = new boolean[_size];
+		pathNodes1 = new ArrayList<PathNode>(_size);
+		pathNodes2 = new ArrayList<PathNode>(_size);
 	}
 
 	public BeamPathFinder(int height, int width, long freq, long time)
@@ -241,27 +265,12 @@ public class BeamPathFinder
 			return null;
 
 		/**
-	 	 * Stores building plans constructed from path nodes
+		 * Stores building plans constructed from path nodes
 		*/
 		final LinkedList<BuildPlan> buildPath = new LinkedList<BuildPlan>();
 
 		/**
-	 	 * Stores path nodes during path evaluation
-		*/
-		ArrayList<PathNode> pathNodes = new ArrayList<PathNode>(_size);
-
-		/**
-	 	 * Path nodes indices map. Stores -1 or index of valid path node. Filled right before reduction.
-		*/
-		final int[] iMap = new int[_size];
-
-		/**
-	 	 * Path nodes map. Stores false or true for unbuildable or visited tile.
-		*/
-		final boolean[] pMap = new boolean[_size];
-
-		/**
-	 	 * Evaluate rotate order
+		 * Evaluate rotate order
 		*/
 		final int[] evaluateRotateOrder = new int[4];
 
@@ -278,14 +287,15 @@ public class BeamPathFinder
 					aMap[i] = _map[i];
 		}
 
-		// Fill indices map with -1
+		// Fill path nodes indices map with -1
 		Arrays.fill(iMap, -1);
 
 		// Map all blocked tiles to pMap
-		// Suppose Java initialized arrays with falses already
 		for (int i = 0; i < _size; ++i)
-			if (aMap[i] == BLOCK)
-				pMap[i] = true;
+			pMap[i] = aMap[i] == BLOCK;
+
+		pathNodes1.clear();
+		pathNodes2.clear();
 
 		int pRotate;
 
@@ -412,7 +422,7 @@ public class BeamPathFinder
 			/**
 			 * Let first tile rotate any direction
 			*/
-			final int aRotate = pathNodes.size() == 0 ? -1 : mRotate;
+			final int aRotate = pathNodes1.size() == 0 ? -1 : mRotate;
 			pMap[idx] = true;
 
 			final boolean energy = aMap[idx] == ENERGY;
@@ -547,16 +557,16 @@ public class BeamPathFinder
 			// If no path found get back to previous position or return failure
 			if (mRotate == -1)
 			{
-				if (pathNodes.size() == 0)
+				if (pathNodes1.size() == 0)
 					return null;
 				else
 				{
-					pathNodes.remove(pathNodes.size() - 1);
+					pathNodes1.remove(pathNodes1.size() - 1);
 
-					if (pathNodes.size() == 0)
+					if (pathNodes1.size() == 0)
 						pRotate = dRotate;
 					else
-						pRotate = pathNodes.get(pathNodes.size() - 1).r;
+						pRotate = pathNodes1.get(pathNodes1.size() - 1).r;
 				}
 			}
 			// Else save position and get ahead
@@ -567,7 +577,7 @@ public class BeamPathFinder
 
 				pRotate = mRotate;
 
-				pathNodes.add(pathNode);
+				pathNodes1.add(pathNode);
 
 				switch (mRotate)
 				{
@@ -594,13 +604,13 @@ public class BeamPathFinder
 		}
 
 		// Fill indices map
-		for (int i = 0; i < pathNodes.size(); ++i)
-			iMap[pathNodes.get(i).i] = i;
+		for (int i = 0; i < pathNodes1.size(); ++i)
+			iMap[pathNodes1.get(i).i] = i;
 
 		// Path reduction
-		for (int i = 0; i < pathNodes.size(); ++i)
+		for (int i = 0; i < pathNodes1.size(); ++i)
 		{
-			final PathNode pathNode = pathNodes.get(i);
+			final PathNode pathNode = pathNodes1.get(i);
 			final int idx3 = pathNode.i;
 
 			final boolean energy = aMap[idx3] == ENERGY;
