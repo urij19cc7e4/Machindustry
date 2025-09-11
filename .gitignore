@@ -1,5 +1,5 @@
-bin/
-logs/
+/bin/
+/logs/
 /core/assets/mindustry-saves/
 /core/assets/mindustry-maps/
 /core/assets/bundles/output/
