@@ -9,6 +9,8 @@ import arc.Core;
 import arc.Events;
 import arc.func.Cons;
 import arc.graphics.Color;
+import arc.graphics.g2d.Draw;
+import arc.graphics.g2d.Fill;
 import arc.input.KeyCode;
 import arc.math.Mathf;
 import arc.math.geom.Vec2;
@@ -16,11 +18,13 @@ import arc.scene.event.InputEvent;
 import arc.scene.event.InputListener;
 import arc.scene.style.TextureRegionDrawable;
 import arc.scene.ui.Label;
+import arc.struct.Queue;
 import machindustry.PathTask.PathType;
 import mindustry.Vars;
 import mindustry.content.Blocks;
 import mindustry.entities.units.BuildPlan;
 import mindustry.game.EventType.DisposeEvent;
+import mindustry.game.EventType.Trigger;
 import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.game.Team;
 import mindustry.gen.Building;
@@ -70,6 +74,7 @@ public class Machindustry extends Mod
 	private static final String _solidBuildTimeName = "solid-time-to-build-path";
 	private static final String _solidIgnoreMaskName = "solid-path-ignore-mask";
 	private static final String _solidTargetModeName = "solid-path-target-mode";
+	private static final String _solidDisableSorterName = "solid-disable-sorter";
 	private static final String _solidReplaceOneName = "solid-replace-one";
 	private static final String _solidReplaceWithName = "solid-replace-with";
 
@@ -118,6 +123,40 @@ public class Machindustry extends Mod
 	private Point _beamLastPoint = null;
 	private Point _liquidLastPoint = null;
 	private Point _solidLastPoint = null;
+
+	private static void DisableRouterSorter(final int x, final int y)
+	{
+		if (Core.settings.getBool(_solidDisableSorterName))
+		{
+			final Team team = Vars.player.team();
+			final Tiles tiles = Vars.world.tiles;
+
+			if (team == null)
+				throw new NullPointerException("Vars.player.team is null");
+
+			if (tiles == null)
+				throw new NullPointerException("Vars.world.tiles is null");
+
+			final Queue<BuildPlan> queue = Vars.player.unit().plans;
+			final BuildPlan buildPlan = GetPlanIntersection(queue, x, y);
+
+			final Tile tile = tiles.get(x, y);
+			final Block block = buildPlan == null ? tile.block() : buildPlan.block;
+
+			if (block == Blocks.ductRouter)
+			{
+				if (buildPlan == null)
+				{
+					final Building build = tile.build;
+
+					if (build != null && build.team == team)
+						build.configure(null);
+				}
+				else
+					buildPlan.config = null;
+			}
+		}
+	}
 	
 	private static boolean DoHandle()
 	{
@@ -154,6 +193,48 @@ public class Machindustry extends Mod
 			&& !Vars.ui.schematics.isShown()
 			&& !Vars.ui.settings.isShown()
 			&& !Vars.ui.traces.isShown();
+	}
+
+	private static BuildPlan GetPlanIntersection(final BuildPlan[] buildPlans, final int x, final int y)
+	{
+		BuildPlan rBuildPlan = null;
+
+		for (BuildPlan buildPlan : buildPlans)
+		{
+			final Block block = buildPlan.block;
+
+			final int x1 = buildPlan.x + block.sizeOffset;
+			final int x2 = x1 + block.size - 1;
+
+			final int y1 = buildPlan.y + block.sizeOffset;
+			final int y2 = y1 + block.size - 1;
+
+			if (x1 <= x && x <= x2 && y1 <= y && y <= y2)
+				rBuildPlan = buildPlan;
+		}
+
+		return rBuildPlan;
+	}
+
+	private static BuildPlan GetPlanIntersection(final Queue<BuildPlan> buildPlans, final int x, final int y)
+	{
+		BuildPlan rBuildPlan = null;
+
+		for (BuildPlan buildPlan : buildPlans)
+		{
+			final Block block = buildPlan.block;
+
+			final int x1 = buildPlan.x + block.sizeOffset;
+			final int x2 = x1 + block.size - 1;
+
+			final int y1 = buildPlan.y + block.sizeOffset;
+			final int y2 = y1 + block.size - 1;
+
+			if (x1 <= x && x <= x2 && y1 <= y && y <= y2)
+				rBuildPlan = buildPlan;
+		}
+
+		return rBuildPlan;
 	}
 
 	private static String GetReplacerSolidName(int value)
@@ -200,12 +281,33 @@ public class Machindustry extends Mod
 			return -1;
 	}
 
+	private static int NotRotate(final int rotate)
+	{
+		switch (rotate)
+		{
+			case 0:
+				return 2;
+
+			case 1:
+				return 3;
+
+			case 2:
+				return 0;
+
+			case 3:
+				return 1;
+
+			default:
+				return -1;
+		}
+	}
+
 	private static void PrintLine(final String x)
 	{
 		System.out.println("[Machindustry] " + x);
 	}
 
-	private static void ReplaceLiquid(final LinkedList<BuildPlan> buildPlans, final int x, final int y)
+	private static void ReplaceLiquid(final BuildPlan[] playerBuildPlans, final LinkedList<BuildPlan> buildPlans, final int x, final int y)
 	{
 		if (Core.settings.getBool(_liquidReplaceOneName))
 		{
@@ -218,16 +320,21 @@ public class Machindustry extends Mod
 			if (tiles == null)
 				throw new NullPointerException("Vars.world.tiles is null");
 
+			final BuildPlan buildPlan = GetPlanIntersection(playerBuildPlans, x, y);
+
 			final Tile tile = tiles.get(x, y);
-			final Block block = tile.block();
+			final Block block = buildPlan == null ? tile.block() : buildPlan.block;
 			final Building build = tile.build;
 
-			if (build != null && build.team == team && block == Blocks.reinforcedConduit)
-				buildPlans.addLast(new BuildPlan(x, y, build.rotation, Blocks.reinforcedLiquidRouter));
+			final boolean buildExist = buildPlan != null || (build != null && build.team == team);
+			final int rotation = buildPlan == null ? (build == null ? -1 : build.rotation) : buildPlan.rotation;
+			
+			if (buildExist && block == Blocks.reinforcedConduit)
+				buildPlans.addLast(new BuildPlan(x, y, rotation, Blocks.reinforcedLiquidRouter));
 		}
 	}
 
-	private static void ReplaceSolid(final LinkedList<BuildPlan> buildPlans, final int x, final int y)
+	private static void ReplaceSolid(final BuildPlan[] playerBuildPlans, final LinkedList<BuildPlan> buildPlans, final int x, final int y)
 	{
 		if (Core.settings.getBool(_solidReplaceOneName))
 		{
@@ -240,9 +347,14 @@ public class Machindustry extends Mod
 			if (tiles == null)
 				throw new NullPointerException("Vars.world.tiles is null");
 
+			final BuildPlan buildPlan = GetPlanIntersection(playerBuildPlans, x, y);
+
 			final Tile tile = tiles.get(x, y);
-			final Block block = tile.block();
+			final Block block = buildPlan == null ? tile.block() : buildPlan.block;
 			final Building build = tile.build;
+
+			final boolean buildExist = buildPlan != null || (build != null && build.team == team);
+			final int rotation = buildPlan == null ? (build == null ? -1 : build.rotation) : buildPlan.rotation;
 
 			Block replaceWithBlock;
 			switch (Core.settings.getInt(_solidReplaceWithName))
@@ -264,8 +376,8 @@ public class Machindustry extends Mod
 					break;
 			}
 
-			if (build != null && build.team == team && (block == Blocks.duct || block == Blocks.armoredDuct))
-				buildPlans.addLast(new BuildPlan(x, y, build.rotation, replaceWithBlock));
+			if (buildExist && (block == Blocks.duct || block == Blocks.armoredDuct))
+				buildPlans.addLast(new BuildPlan(x, y, rotation, replaceWithBlock));
 		}
 	}
 
@@ -302,10 +414,10 @@ public class Machindustry extends Mod
 		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.settings-title")));
 		machindustrySettingsTable.pref(invisibleSpace);
 
-		machindustrySettingsTable.checkPref("polygon-safe-zone", true);
-		machindustrySettingsTable.sliderPref("radius-safe-zone", 1, 0, 9, 1, v -> Integer.toString(v));
-		machindustrySettingsTable.sliderPref("time-check-frequency", 1000, 100, 10000, 100, v -> Integer.toString(v));
-		machindustrySettingsTable.sliderPref("time-to-build-path", 100, 10, 1000, 10, v -> Integer.toString(v));
+		machindustrySettingsTable.checkPref(_polygonSafeZoneName, true);
+		machindustrySettingsTable.sliderPref(_radiusSafeZoneName, 1, 0, 9, 1, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_frequencyName, 1000, 100, 10000, 100, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_buildTimeName, 100, 10, 1000, 10, v -> Integer.toString(v));
 
 		machindustrySettingsTable.pref(visibleSpace);
 		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.beam-title")));
@@ -319,16 +431,16 @@ public class Machindustry extends Mod
 
 		machindustrySettingsTable.pref(invisibleSpace);
 
-		machindustrySettingsTable.checkPref("beam-mask-around-build", true);
-		machindustrySettingsTable.checkPref("beam-mask-around-core", true);
-		machindustrySettingsTable.checkPref("beam-mask-around-liquid", false);
-		machindustrySettingsTable.checkPref("beam-mask-around-solid", false);
+		machindustrySettingsTable.checkPref(_beamMaskAroundBuildName, true);
+		machindustrySettingsTable.checkPref(_beamMaskAroundCoreName, true);
+		machindustrySettingsTable.checkPref(_beamMaskAroundLiquidName, false);
+		machindustrySettingsTable.checkPref(_beamMaskAroundSolidName, false);
 
 		machindustrySettingsTable.pref(invisibleSpace);
 
-		machindustrySettingsTable.sliderPref("beam-time-to-build-path", 500, 50, 5000, 50, v -> Integer.toString(v));
-		machindustrySettingsTable.checkPref("beam-path-ignore-mask", true);
-		machindustrySettingsTable.checkPref("beam-path-target-mode", true);
+		machindustrySettingsTable.sliderPref(_beamBuildTimeName, 250, 25, 2500, 25, v -> Integer.toString(v));
+		machindustrySettingsTable.checkPref(_beamIgnoreMaskName, true);
+		machindustrySettingsTable.checkPref(_beamTargetModeName, true);
 
 		machindustrySettingsTable.pref(visibleSpace);
 		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.liquid-title")));
@@ -342,17 +454,17 @@ public class Machindustry extends Mod
 
 		machindustrySettingsTable.pref(invisibleSpace);
 
-		machindustrySettingsTable.checkPref("liquid-mask-around-build", true);
-		machindustrySettingsTable.checkPref("liquid-mask-around-core", true);
-		machindustrySettingsTable.checkPref("liquid-mask-around-liquid", false);
-		machindustrySettingsTable.checkPref("liquid-mask-around-solid", false);
+		machindustrySettingsTable.checkPref(_liquidMaskAroundBuildName, true);
+		machindustrySettingsTable.checkPref(_liquidMaskAroundCoreName, true);
+		machindustrySettingsTable.checkPref(_liquidMaskAroundLiquidName, false);
+		machindustrySettingsTable.checkPref(_liquidMaskAroundSolidName, false);
 
 		machindustrySettingsTable.pref(invisibleSpace);
 
-		machindustrySettingsTable.sliderPref("liquid-time-to-build-path", 1000, 100, 10000, 100, v -> Integer.toString(v));
-		machindustrySettingsTable.checkPref("liquid-path-ignore-mask", true);
-		machindustrySettingsTable.checkPref("liquid-path-target-mode", true);
-		machindustrySettingsTable.checkPref("liquid-replace-one", true);
+		machindustrySettingsTable.sliderPref(_liquidBuildTimeName, 1000, 100, 10000, 100, v -> Integer.toString(v));
+		machindustrySettingsTable.checkPref(_liquidIgnoreMaskName, true);
+		machindustrySettingsTable.checkPref(_liquidTargetModeName, true);
+		machindustrySettingsTable.checkPref(_liquidReplaceOneName, true);
 
 		machindustrySettingsTable.pref(visibleSpace);
 		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.solid-title")));
@@ -366,22 +478,34 @@ public class Machindustry extends Mod
 
 		machindustrySettingsTable.pref(invisibleSpace);
 
-		machindustrySettingsTable.checkPref("solid-mask-around-build", true);
-		machindustrySettingsTable.checkPref("solid-mask-around-core", true);
-		machindustrySettingsTable.checkPref("solid-mask-around-liquid", false);
-		machindustrySettingsTable.checkPref("solid-mask-around-solid", false);
+		machindustrySettingsTable.checkPref(_solidMaskAroundBuildName, true);
+		machindustrySettingsTable.checkPref(_solidMaskAroundCoreName, true);
+		machindustrySettingsTable.checkPref(_solidMaskAroundLiquidName, false);
+		machindustrySettingsTable.checkPref(_solidMaskAroundSolidName, false);
 
 		machindustrySettingsTable.pref(invisibleSpace);
 
-		machindustrySettingsTable.sliderPref("solid-time-to-build-path", 1000, 100, 10000, 100, v -> Integer.toString(v));
-		machindustrySettingsTable.checkPref("solid-path-ignore-mask", true);
-		machindustrySettingsTable.checkPref("solid-path-target-mode", true);
-		machindustrySettingsTable.checkPref("solid-replace-one", true);
-		machindustrySettingsTable.sliderPref("solid-replace-with", 0, 0, 2, 1, v -> Core.bundle.get("machindustry.solid-replace-with-" + GetReplacerSolidName(v)));
+		machindustrySettingsTable.sliderPref(_solidBuildTimeName, 1000, 100, 10000, 100, v -> Integer.toString(v));
+		machindustrySettingsTable.checkPref(_solidIgnoreMaskName, true);
+		machindustrySettingsTable.checkPref(_solidTargetModeName, true);
+		machindustrySettingsTable.checkPref(_solidDisableSorterName, true);
+		machindustrySettingsTable.checkPref(_solidReplaceOneName, true);
+		machindustrySettingsTable.sliderPref(_solidReplaceWithName, 0, 0, 2, 1, v -> Core.bundle.get("machindustry.solid-replace-with-" + GetReplacerSolidName(v)));
 
 		machindustrySettingsTable.pref(visibleSpace);
 
 		mindustrySettingsTable.add(machindustrySettingsTable);
+	}
+
+	private void DrawSquareOverlay(final int x, final int y, final Color color)
+	{
+		final float tilesize = (float)Vars.tilesize;
+		final float worldX = ((float)x) * tilesize;
+		final float worldY = ((float)y) * tilesize;
+
+		Draw.color(color.r, color.g, color.b, color.a);
+		Fill.rect(worldX, worldY, tilesize, tilesize);
+		Draw.reset();
 	}
 
 	private boolean Expired(long endTime, long taskEpoch)
@@ -411,7 +535,6 @@ public class Machindustry extends Mod
 
 			for (int y = 0, i = 0; y < _height; ++y)
 				for (int x = 0; x < _width; ++x, ++i)
-					if (!validMap[i])
 					{
 						final Tile tile = tiles.geti(i);
 						final Block block = tile.block();
@@ -617,10 +740,17 @@ public class Machindustry extends Mod
 			return null;
 
 		final Pair<ArrayList<Point>, ArrayList<Point>> pair = GetPoints(worldState.Map, x1, y1, x2, y2);
+		final boolean[] masks = new boolean[5];
 
 		LinkedList<BuildPlan> buildPlans = FindPath
 		(
-			(p) -> pathFinder.BuildPath(p.a.x, p.a.y, p.b.x, p.b.y, GetRotate(x1, y1, p.a.x, p.a.y), targetMode, _masksMap),
+			(p) ->
+			{
+				MaskPoints(masks, true, p.a, p.b);
+				var v = pathFinder.BuildPath(p.a.x, p.a.y, p.b.x, p.b.y, GetRotate(x1, y1, p.a.x, p.a.y), targetMode, _masksMap);
+				MaskPoints(masks, false, p.a, p.b);
+				return v;
+			},
 			pair.a,
 			pair.b,
 			endTime,
@@ -639,7 +769,7 @@ public class Machindustry extends Mod
 
 		if (buildPlans != null)
 		{
-			ReplaceLiquid(buildPlans, x1, y1);
+			ReplaceLiquid(worldState.BuildPlans, buildPlans, x1, y1);
 			return buildPlans;
 		}
 
@@ -690,10 +820,67 @@ public class Machindustry extends Mod
 			return null;
 
 		final Pair<ArrayList<Point>, ArrayList<Point>> pair = GetPoints(worldState.Map, x1, y1, x2, y2);
+		final boolean[] masks = new boolean[5];
 
+		if (!Core.settings.getBool(_solidDisableSorterName))
+		{
+			final Team team = Vars.player.team();
+			final Tiles tiles = Vars.world.tiles;
+
+			if (team == null)
+				throw new NullPointerException("Vars.player.team is null");
+
+			if (tiles == null)
+				throw new NullPointerException("Vars.world.tiles is null");
+
+			final BuildPlan buildPlan = GetPlanIntersection(worldState.BuildPlans, x1, y1);
+
+			final Tile tile = tiles.get(x1, y1);
+			final Block block = buildPlan == null ? tile.block() : buildPlan.block;
+
+			if (block == Blocks.ductRouter)
+			{
+				int rotation = -1;
+
+				if (buildPlan == null)
+				{
+					final Building build = tile.build;
+
+					if (build != null && build.team == team)
+						rotation = build.rotation;
+				}
+				else
+					rotation = buildPlan.rotation;
+
+				switch (rotation)
+				{
+					case 0:
+					case 2:
+						pair.a.removeIf(point -> (point.x == x1 && point.y == y1 + 1));
+						pair.a.removeIf(point -> (point.x == x1 && point.y == y1 - 1));
+						break;
+
+					case 1:
+					case 3:
+						pair.a.removeIf(point -> (point.x == x1 + 1 && point.y == y1));
+						pair.a.removeIf(point -> (point.x == x1 - 1 && point.y == y1));
+						break;
+
+					default:
+						break;
+				}
+			}
+		}
+		
 		LinkedList<BuildPlan> buildPlans = FindPath
 		(
-			(p) -> pathFinder.BuildPath(p.a.x, p.a.y, p.b.x, p.b.y, targetMode, _masksMap),
+			(p) ->
+			{
+				MaskPoints(masks, true, p.a, p.b);
+				var v = pathFinder.BuildPath(p.a.x, p.a.y, p.b.x, p.b.y, NotRotate(GetRotate(x1, y1, p.a.x, p.a.y)), targetMode, _masksMap);
+				MaskPoints(masks, false, p.a, p.b);
+				return v;
+			},
 			pair.a,
 			pair.b,
 			endTime,
@@ -703,7 +890,7 @@ public class Machindustry extends Mod
 		if (buildPlans == null && ignoreMask && !Expired(endTime, taskEpoch))
 			buildPlans = FindPath
 			(
-				(p) -> pathFinder.BuildPath(p.a.x, p.a.y, p.b.x, p.b.y, targetMode, null),
+				(p) -> pathFinder.BuildPath(p.a.x, p.a.y, p.b.x, p.b.y, NotRotate(GetRotate(x1, y1, p.a.x, p.a.y)), targetMode, null),
 				pair.a,
 				pair.b,
 				endTime,
@@ -712,7 +899,7 @@ public class Machindustry extends Mod
 
 		if (buildPlans != null)
 		{
-			ReplaceSolid(buildPlans, x1, y1);
+			ReplaceSolid(worldState.BuildPlans, buildPlans, x1, y1);
 			return buildPlans;
 		}
 
@@ -724,8 +911,8 @@ public class Machindustry extends Mod
 		final float tilesize = (float)Vars.tilesize;
 		final Vec2 vec2 = Core.input.mouseWorld();
 
-		final int x = (int)Math.floor(vec2.x / tilesize);
-		final int y = (int)Math.floor(vec2.y / tilesize);
+		final int x = (int)Math.floor(vec2.x / tilesize + 0.5F);
+		final int y = (int)Math.floor(vec2.y / tilesize + 0.5F);
 		final int i = x + y * _width;
 
 		return new Point(x, y, i);
@@ -941,11 +1128,68 @@ public class Machindustry extends Mod
 			_worldState.close();
 
 		_masksMap = new boolean[_size];
-		_worldState = new WorldState(_height, _width, polygonSZ, radiusSZ, _worldUpdateRunnable, null);
+		_worldState = new WorldState(_height, _width, polygonSZ, radiusSZ);
 
-		_beamPathFinder = new BeamPathFinder(_height, _width, freq, time);
+		_beamPathFinder = new BeamPathFinder(_height, _width, freq, time / (long)4);
 		_liquidPathFinder = new LiquidPathFinder(_height, _width, freq, time);
 		_solidPathFinder = new SolidPathFinder(_height, _width, freq, time);
+	}
+
+	private void MaskPoints(final boolean[] masks, final boolean mask, final Point a, final Point b)
+	{
+		if (mask)
+		{
+			masks[0] = _masksMap[a.i];
+			_masksMap[a.i] = false;
+
+			if (b.x + 1 < _width)
+			{
+				final int index = b.i + 1;
+
+				masks[1] = _masksMap[index];
+				_masksMap[index] = false;
+			}
+
+			if (b.y + 1 < _height)
+			{
+				final int index = b.i + _width;
+
+				masks[2] = _masksMap[index];
+				_masksMap[index] = false;
+			}
+
+			if (b.x > 0)
+			{
+				final int index = b.i - 1;
+
+				masks[3] = _masksMap[index];
+				_masksMap[index] = false;
+			}
+
+			if (b.y > 0)
+			{
+				final int index = b.i - _width;
+
+				masks[4] = _masksMap[index];
+				_masksMap[index] = false;
+			}
+		}
+		else
+		{
+			_masksMap[a.i] = masks[0];
+
+			if (b.x + 1 < _width)
+				_masksMap[b.i + 1] = masks[1];
+
+			if (b.y + 1 < _height)
+				_masksMap[b.i + _width] = masks[2];
+
+			if (b.x > 0)
+				_masksMap[b.i - 1] = masks[3];
+
+			if (b.y > 0)
+				_masksMap[b.i - _width] = masks[4];
+		}
 	}
 
 	private void TaskWorker()
@@ -1027,11 +1271,46 @@ public class Machindustry extends Mod
 
 	private void WorldUpdateRunnable()
 	{
+		if (DoHandle())
+		{
+			Color color = new Color(0F, 0F, 0F, 0.25F);
+			boolean value = false;
+
+			if (_beamFirstPoint != null)
+			{
+				DrawSquareOverlay(_beamFirstPoint.x, _beamFirstPoint.y, new Color(1F, 0F, 0F, 0.25F));
+				color.r = 1F;
+				value = true;
+			}
+
+			if (_liquidFirstPoint != null)
+			{
+				DrawSquareOverlay(_liquidFirstPoint.x, _liquidFirstPoint.y, new Color(0F, 1F, 0F, 0.25F));
+				color.g = 1F;
+				value = true;
+			}
+
+			if (_solidFirstPoint != null)
+			{
+				DrawSquareOverlay(_solidFirstPoint.x, _solidFirstPoint.y, new Color(0F, 0F, 1F, 0.25F));
+				color.b = 1F;
+				value = true;
+			}
+
+			if (value)
+			{
+				Point currentPoint = GetCurrentPoint();
+				DrawSquareOverlay(currentPoint.x, currentPoint.y, color);
+			}
+		}
 	}
 
 	public Machindustry()
 	{
 		super();
+
+		// Should remove after???
+		Events.run(Trigger.drawOver, _worldUpdateRunnable);
 
 		Events.on(DisposeEvent.class, _gameExitEventCons);
 		Events.on(WorldLoadEvent.class, _worldLoadEventCons);
@@ -1118,6 +1397,7 @@ public class Machindustry extends Mod
 				else if (code == _solidPathFinderCode)
 				{
 					_solidLastPoint = GetCurrentPoint();
+					DisableRouterSorter(_solidFirstPoint.x, _solidFirstPoint.y);
 					_taskQueue.AddTask(new PathTask
 					(
 						_solidFirstPoint.x,

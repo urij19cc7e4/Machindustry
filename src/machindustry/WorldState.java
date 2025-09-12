@@ -92,16 +92,6 @@ public class WorldState implements AutoCloseable
 	public float RadiusSafeZone = 1F;
 
 	/**
-	 * Run in main game thread after world state update
-	*/
-	public Runnable AfterUpdateFunc = null;
-
-	/**
-	 * Run in main game thread before world state update
-	*/
-	public Runnable BeforeUpdateFunc = null;
-
-	/**
 	 * Interacts with game data in main game thread.
 	 * BuildPlansMachinary field is copied to player building plans.
 	 * Player building plans are copied to BuildPlans field.
@@ -109,12 +99,6 @@ public class WorldState implements AutoCloseable
 	*/
 	private void MainGameThreadUpdate()
 	{
-		Runnable afterUpdateFunc = AfterUpdateFunc;
-		Runnable beforeUpdateFunc = BeforeUpdateFunc;
-
-		if (beforeUpdateFunc != null)
-			beforeUpdateFunc.run();
-
 		final Seq<TeamData> teams = Vars.state.teams.active;
 		final Queue<BuildPlan> queue = Vars.player.unit().plans;
 
@@ -153,9 +137,6 @@ public class WorldState implements AutoCloseable
 
 		_cores = cores;
 		BuildPlans = buildPlans;
-
-		if (afterUpdateFunc != null)
-			afterUpdateFunc.run();
 	}
 
 	@Override
@@ -207,17 +188,6 @@ public class WorldState implements AutoCloseable
 
 		PolygonSafeZone = polygonSZ;
 		RadiusSafeZone = radiusSZ;
-	}
-
-	/**
-	 * INVOKE ONLY IN MAIN GAME THREAD
-	*/
-	public WorldState(int height, int width, boolean polygonSZ, float radiusSZ, Runnable after, Runnable before)
-	{
-		this(height, width, polygonSZ, radiusSZ);
-
-		AfterUpdateFunc = after;
-		BeforeUpdateFunc = before;
 	}
 
 	/**

@@ -1329,7 +1329,16 @@ public class LiquidPathFinder
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	 * @param masks      - Boolean map that protects tiles from pathing
 	*/
-	public LinkedList<BuildPlan> BuildPath(int x1, int y1, final int x2, final int y2, final int mustRotate, final boolean targetMode, final boolean[] masks)
+	public LinkedList<BuildPlan> BuildPath
+	(
+		int x1,
+		int y1,
+		final int x2,
+		final int y2,
+		final int mustRotate,
+		final boolean targetMode,
+		final boolean[] masks
+	)
 	{
 		long startTime = System.nanoTime();
 		long evaluations = 0;

@@ -1290,11 +1290,12 @@ public class SolidPathFinder
 	 * @return             List of building plans if success, null if failure
 	 * @param tile1      - First tile of the path (starting coordinates)
 	 * @param tile2      - Tile after the last tile of the path (destination coordinates)
+	 * @param notRotate  - Excluded rotation of first tile, -1 if not exclude
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	*/
-	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, boolean targetMode)
+	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, int notRotate, boolean targetMode)
 	{
-		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, targetMode, null);
+		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, notRotate, targetMode, null);
 	}
 
 	/**
@@ -1304,11 +1305,12 @@ public class SolidPathFinder
 	 * @param y1         - First tile of the path (starting coordinate)
 	 * @param x2         - Tile after the last tile of the path (destination coordinate)
 	 * @param y2         - Tile after the last tile of the path (destination coordinate)
+	 * @param notRotate  - Excluded rotation of first tile, -1 if not exclude
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	*/
-	public LinkedList<BuildPlan> BuildPath(int x1, int y1, int x2, int y2, boolean targetMode)
+	public LinkedList<BuildPlan> BuildPath(int x1, int y1, int x2, int y2, int notRotate, boolean targetMode)
 	{
-		return BuildPath(x1, y1, x2, y2, targetMode, null);
+		return BuildPath(x1, y1, x2, y2, notRotate, targetMode, null);
 	}
 
 	/**
@@ -1316,12 +1318,13 @@ public class SolidPathFinder
 	 * @return             List of building plans if success, null if failure
 	 * @param tile1      - First tile of the path (starting coordinates)
 	 * @param tile2      - Tile after the last tile of the path (destination coordinates)
+	 * @param notRotate  - Excluded rotation of first tile, -1 if not exclude
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	 * @param masks      - Boolean map that protects tiles from pathing
 	*/
-	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, boolean targetMode, boolean[] masks)
+	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, int notRotate, boolean targetMode, boolean[] masks)
 	{
-		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, targetMode, masks);
+		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, notRotate, targetMode, masks);
 	}
 
 	/**
@@ -1331,10 +1334,20 @@ public class SolidPathFinder
 	 * @param y1         - First tile of the path (starting coordinate)
 	 * @param x2         - Tile after the last tile of the path (destination coordinate)
 	 * @param y2         - Tile after the last tile of the path (destination coordinate)
+	 * @param notRotate  - Excluded rotation of first tile, -1 if not exclude
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	 * @param masks      - Boolean map that protects tiles from pathing
 	*/
-	public LinkedList<BuildPlan> BuildPath(int x1, int y1, final int x2, final int y2, final boolean targetMode, final boolean[] masks)
+	public LinkedList<BuildPlan> BuildPath
+	(
+		int x1,
+		int y1,
+		final int x2,
+		final int y2,
+		final int notRotate,
+		final boolean targetMode,
+		final boolean[] masks
+	)
 	{
 		long startTime = System.nanoTime();
 		long evaluations = 0;
@@ -1640,22 +1653,22 @@ public class SolidPathFinder
 							switch (evaluateRotateOrder[i])
 							{
 								case RIGHT:
-									if (EvaluateRightRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (notRotate != RIGHT && EvaluateRightRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = RIGHT;
 									break;
 
 								case UPPER:
-									if (EvaluateUpperRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (notRotate != UPPER && EvaluateUpperRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = UPPER;
 									break;
 
 								case LEFT:
-									if (EvaluateLeftRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (notRotate != LEFT && EvaluateLeftRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = LEFT;
 									break;
 
 								case BOTTOM:
-									if (EvaluateBottomRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (notRotate != BOTTOM && EvaluateBottomRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = BOTTOM;
 									break;
 
@@ -1682,22 +1695,22 @@ public class SolidPathFinder
 							switch (evaluateRotateOrderEx[i])
 							{
 								case RIGHT:
-									if (EvaluateRightRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (notRotate != RIGHT && EvaluateRightRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = RIGHT;
 									break;
 
 								case UPPER:
-									if (EvaluateUpperRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (notRotate != UPPER && EvaluateUpperRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = UPPER;
 									break;
 
 								case LEFT:
-									if (EvaluateLeftRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (notRotate != LEFT && EvaluateLeftRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = LEFT;
 									break;
 
 								case BOTTOM:
-									if (EvaluateBottomRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
+									if (notRotate != BOTTOM && EvaluateBottomRotate(pathNode, idx, idx4, x1, y1, x2, y2, pRotate, aStep))
 										mRotate = BOTTOM;
 									break;
 
