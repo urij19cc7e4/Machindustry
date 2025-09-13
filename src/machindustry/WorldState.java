@@ -92,6 +92,16 @@ public class WorldState implements AutoCloseable
 	public float RadiusSafeZone = 1F;
 
 	/**
+	 * Run in main game thread after world state update
+	*/
+	public Runnable AfterUpdateFunc = null;
+
+	/**
+	 * Run in main game thread before world state update
+	*/
+	public Runnable BeforeUpdateFunc = null;
+
+	/**
 	 * Interacts with game data in main game thread.
 	 * BuildPlansMachinary field is copied to player building plans.
 	 * Player building plans are copied to BuildPlans field.
@@ -99,6 +109,12 @@ public class WorldState implements AutoCloseable
 	*/
 	private void MainGameThreadUpdate()
 	{
+		final Runnable afterUpdateFunc = AfterUpdateFunc;
+		final Runnable beforeUpdateFunc = BeforeUpdateFunc;
+
+		if (beforeUpdateFunc != null)
+			beforeUpdateFunc.run();
+
 		final Seq<TeamData> teams = Vars.state.teams.active;
 		final Queue<BuildPlan> queue = Vars.player.unit().plans;
 
@@ -111,7 +127,7 @@ public class WorldState implements AutoCloseable
 		{
 			queue.ensureCapacity(buildPlansMachinary.length);
 
-			for (BuildPlan buildPlan : buildPlansMachinary)
+			for (final BuildPlan buildPlan : buildPlansMachinary)
 				queue.addLast(buildPlan);
 		}
 
@@ -120,23 +136,26 @@ public class WorldState implements AutoCloseable
 		CoreBuild[] cores;
 		int count = 0;
 
-		for (BuildPlan buildPlan : queue)
+		for (final BuildPlan buildPlan : queue)
 			buildPlans[count++] = buildPlan;
 
 		count = 0;
 
-		for (TeamData teamData : teams)
+		for (final TeamData teamData : teams)
 			count += teamData.cores.size;
 
 		cores = new CoreBuild[count];
 		count = 0;
 
-		for (TeamData teamData : teams)
-			for (CoreBuild coreBuild : teamData.cores)
+		for (final TeamData teamData : teams)
+			for (final CoreBuild coreBuild : teamData.cores)
 				cores[count++] = coreBuild;
 
 		_cores = cores;
 		BuildPlans = buildPlans;
+
+		if (afterUpdateFunc != null)
+			afterUpdateFunc.run();
 	}
 
 	@Override
@@ -191,6 +210,17 @@ public class WorldState implements AutoCloseable
 	}
 
 	/**
+	 * INVOKE ONLY IN MAIN GAME THREAD
+	*/
+	public WorldState(int height, int width, boolean polygonSZ, float radiusSZ, Runnable after, Runnable before)
+	{
+		this(height, width, polygonSZ, radiusSZ);
+
+		AfterUpdateFunc = after;
+		BeforeUpdateFunc = before;
+	}
+
+	/**
 	 * Updates internal building validation map. At fact this is ported version of {@link Build#validPlace}
 	 * method designed to run in a separate thread and optimized for processing the entire map efficiently.
 	 * It does not check ground units
@@ -224,7 +254,7 @@ public class WorldState implements AutoCloseable
 			final Seq<GraphEdge> edges = Voronoi.generate(coresVecs, 0F, (float)Vars.world.unitWidth(), 0F, (float)Vars.world.unitHeight());
 
 			// Voxel Traversal for each graph edge that is between enemy and player teams
-			for (GraphEdge edge : edges)
+			for (final GraphEdge edge : edges)
 				if (cores[edge.site1].team == team ^ cores[edge.site2].team == team)
 				{
 					// Edges coordinates are center-based not corner-based
@@ -297,7 +327,7 @@ public class WorldState implements AutoCloseable
 			final ArrayList<Point> queue = new ArrayList<Point>(Size);
 
 			// Fill between enemy cores and enemy-player graph edges
-			for (CoreBuild core : cores)
+			for (final CoreBuild core : cores)
 				if (core.team != team)
 				{
 					int x = Math.round(core.x / tilesize);
@@ -332,7 +362,7 @@ public class WorldState implements AutoCloseable
 			final float tileRadius = Vars.state.rules.enemyCoreBuildRadius + RadiusSafeZone * tilesize + tilesize;
 			final float tileRadiusSquare = tileRadius * tileRadius;
 
-			for (CoreBuild core : cores)
+			for (final CoreBuild core : cores)
 				if (core.team != team)
 				{
 					final int xMax = Math.min((int)Math.floor((core.x + tileRadius) / tilesize), Width - 1);

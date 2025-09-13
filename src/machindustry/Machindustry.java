@@ -19,6 +19,7 @@ import arc.scene.event.InputListener;
 import arc.scene.style.TextureRegionDrawable;
 import arc.scene.ui.Label;
 import arc.struct.Queue;
+import arc.struct.Seq;
 import machindustry.PathTask.PathType;
 import mindustry.Vars;
 import mindustry.content.Blocks;
@@ -28,50 +29,67 @@ import mindustry.game.EventType.Trigger;
 import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.game.Team;
 import mindustry.gen.Building;
+import mindustry.graphics.MultiPacker.PageType;
 import mindustry.mod.Mod;
 import mindustry.ui.dialogs.SettingsMenuDialog.SettingsCategory;
 import mindustry.ui.dialogs.SettingsMenuDialog.SettingsTable;
 import mindustry.ui.dialogs.SettingsMenuDialog.SettingsTable.Setting;
 import mindustry.world.Block;
+import mindustry.world.Build;
 import mindustry.world.Tile;
 import mindustry.world.Tiles;
 import mindustry.world.blocks.liquid.LiquidBlock;
+import mindustry.world.blocks.power.PowerGraph;
 import mindustry.world.blocks.storage.CoreBlock;
+import mindustry.world.meta.Attribute;
+import mindustry.world.meta.BlockFlag;
 
 public class Machindustry extends Mod
 {
+	private static final Color _beamPointColor = new Color(1F, 0F, 0F, 0.5F);
+	private static final Color _liquidPointColor = new Color(0F, 1F, 0F, 0.5F);
+	private static final Color _solidPointColor = new Color(0F, 0F, 1F, 0.5F);
+	private static final Color _turbinePointColor = new Color(1F, 1F, 1F, 1F);
+
 	private static final String _name = "machindustry";
 
 	private static final String _polygonSafeZoneName = "polygon-safe-zone";
 	private static final String _radiusSafeZoneName = "radius-safe-zone";
-	private static final String _frequencyName = "time-check-frequency";
-	private static final String _buildTimeName = "time-to-build-path";
+
+	private static final String _beamFrequencyName = "beam-time-check-frequency";
+	private static final String _beamBuildTimeName = "beam-time-to-build-path";
+	private static final String _beamBuildTotalTimeName = "beam-total-time-to-build-path";
 
 	private static final String _beamMaskAroundBuildName = "beam-mask-around-build";
 	private static final String _beamMaskAroundCoreName = "beam-mask-around-core";
 	private static final String _beamMaskAroundLiquidName = "beam-mask-around-liquid";
 	private static final String _beamMaskAroundSolidName = "beam-mask-around-solid";
 
-	private static final String _beamBuildTimeName = "beam-time-to-build-path";
 	private static final String _beamIgnoreMaskName = "beam-path-ignore-mask";
 	private static final String _beamTargetModeName = "beam-path-target-mode";
+
+	private static final String _liquidFrequencyName = "liquid-time-check-frequency";
+	private static final String _liquidBuildTimeName = "liquid-time-to-build-path";
+	private static final String _liquidBuildTotalTimeName = "liquid-total-time-to-build-path";
 
 	private static final String _liquidMaskAroundBuildName = "liquid-mask-around-build";
 	private static final String _liquidMaskAroundCoreName = "liquid-mask-around-core";
 	private static final String _liquidMaskAroundLiquidName = "liquid-mask-around-liquid";
 	private static final String _liquidMaskAroundSolidName = "liquid-mask-around-solid";
 
-	private static final String _liquidBuildTimeName = "liquid-time-to-build-path";
 	private static final String _liquidIgnoreMaskName = "liquid-path-ignore-mask";
 	private static final String _liquidTargetModeName = "liquid-path-target-mode";
 	private static final String _liquidReplaceOneName = "liquid-replace-one";
+
+	private static final String _solidFrequencyName = "solid-time-check-frequency";
+	private static final String _solidBuildTimeName = "solid-time-to-build-path";
+	private static final String _solidBuildTotalTimeName = "solid-total-time-to-build-path";
 
 	private static final String _solidMaskAroundBuildName = "solid-mask-around-build";
 	private static final String _solidMaskAroundCoreName = "solid-mask-around-core";
 	private static final String _solidMaskAroundLiquidName = "solid-mask-around-liquid";
 	private static final String _solidMaskAroundSolidName = "solid-mask-around-solid";
 
-	private static final String _solidBuildTimeName = "solid-time-to-build-path";
 	private static final String _solidIgnoreMaskName = "solid-path-ignore-mask";
 	private static final String _solidTargetModeName = "solid-path-target-mode";
 	private static final String _solidDisableSorterName = "solid-disable-sorter";
@@ -84,10 +102,17 @@ public class Machindustry extends Mod
 	private final Cons<DisposeEvent> _gameExitEventCons = e -> MachindustryDispose();
 	private final Cons<WorldLoadEvent> _worldLoadEventCons = e -> MachindustryUpdate();
 
+	private final Runnable _showResultRunnable = () -> ShowResultRunnable();
 	private final Runnable _worldUpdateRunnable = () -> WorldUpdateRunnable();
 
 	private final TaskQueue _taskQueue = new TaskQueue();
 	private final Thread _thread;
+
+	private String _failureMessage = "FAILURE";
+	private String _successMessage = "SUCCESS";
+
+	private String _millisecondMessage1 = " MS; ";
+	private String _millisecondMessage2 = " MS }";
 
 	/**
 	 * Used to stop worker thread
@@ -104,6 +129,7 @@ public class Machindustry extends Mod
 	private KeyCode _beamPathFinderCode = KeyCode.y;
 	private KeyCode _liquidPathFinderCode = KeyCode.u;
 	private KeyCode _solidPathFinderCode = KeyCode.i;
+	private KeyCode _turbineBuilderCode = KeyCode.o;
 
 	private int _height = -1;
 	private int _width = -1;
@@ -119,10 +145,18 @@ public class Machindustry extends Mod
 	private Point _beamFirstPoint = null;
 	private Point _liquidFirstPoint = null;
 	private Point _solidFirstPoint = null;
+	private Point _turbineFirstPoint = null;
 
 	private Point _beamLastPoint = null;
 	private Point _liquidLastPoint = null;
 	private Point _solidLastPoint = null;
+	private Point _turbineLastPoint = null;
+
+	private boolean _resultFailure = false;
+	private boolean _resultSuccess = false;
+
+	private long _resultTimeAlgorithm = -1;
+	private long _resultTimeTotal = -1;
 
 	private static void DisableRouterSorter(final int x, final int y)
 	{
@@ -412,17 +446,25 @@ public class Machindustry extends Mod
 
 		machindustrySettingsTable.pref(visibleSpace);
 		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.settings-title")));
-		machindustrySettingsTable.pref(invisibleSpace);
 
+		machindustrySettingsTable.pref(invisibleSpace);
 		machindustrySettingsTable.checkPref(_polygonSafeZoneName, true);
 		machindustrySettingsTable.sliderPref(_radiusSafeZoneName, 1, 0, 9, 1, v -> Integer.toString(v));
-		machindustrySettingsTable.sliderPref(_frequencyName, 1000, 100, 10000, 100, v -> Integer.toString(v));
-		machindustrySettingsTable.sliderPref(_buildTimeName, 100, 10, 1000, 10, v -> Integer.toString(v));
+
+		machindustrySettingsTable.pref(visibleSpace);
+		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.turbine-title")));
+
+		machindustrySettingsTable.pref(invisibleSpace);
+		machindustrySettingsTable.textPref("turbine-key", _turbineBuilderCode.name().toUpperCase(), v ->
+		{
+			KeyCode code = Arrays.stream(KeyCode.values()).filter(k -> k.value.equalsIgnoreCase(v)).findFirst().orElse(null);
+			Core.settings.put("turbine-key", code == null ? _turbineBuilderCode.name().toUpperCase() : code.name().toUpperCase());
+		});
 
 		machindustrySettingsTable.pref(visibleSpace);
 		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.beam-title")));
-		machindustrySettingsTable.pref(invisibleSpace);
 
+		machindustrySettingsTable.pref(invisibleSpace);
 		machindustrySettingsTable.textPref("beam-key", _beamPathFinderCode.name().toUpperCase(), v ->
 		{
 			KeyCode code = Arrays.stream(KeyCode.values()).filter(k -> k.value.equalsIgnoreCase(v)).findFirst().orElse(null);
@@ -430,22 +472,24 @@ public class Machindustry extends Mod
 		});
 
 		machindustrySettingsTable.pref(invisibleSpace);
+		machindustrySettingsTable.sliderPref(_beamFrequencyName, 10000, 100, 10000, 100, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_beamBuildTimeName, 20, 2, 200, 2, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_beamBuildTotalTimeName, 200, 20, 2000, 20, v -> Integer.toString(v));
 
-		machindustrySettingsTable.checkPref(_beamMaskAroundBuildName, true);
+		machindustrySettingsTable.pref(invisibleSpace);
+		machindustrySettingsTable.checkPref(_beamMaskAroundBuildName, false);
 		machindustrySettingsTable.checkPref(_beamMaskAroundCoreName, true);
 		machindustrySettingsTable.checkPref(_beamMaskAroundLiquidName, false);
 		machindustrySettingsTable.checkPref(_beamMaskAroundSolidName, false);
+		machindustrySettingsTable.checkPref(_beamIgnoreMaskName, true);
 
 		machindustrySettingsTable.pref(invisibleSpace);
-
-		machindustrySettingsTable.sliderPref(_beamBuildTimeName, 250, 25, 2500, 25, v -> Integer.toString(v));
-		machindustrySettingsTable.checkPref(_beamIgnoreMaskName, true);
 		machindustrySettingsTable.checkPref(_beamTargetModeName, true);
 
 		machindustrySettingsTable.pref(visibleSpace);
 		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.liquid-title")));
-		machindustrySettingsTable.pref(invisibleSpace);
 
+		machindustrySettingsTable.pref(invisibleSpace);
 		machindustrySettingsTable.textPref("liquid-key", _liquidPathFinderCode.name().toUpperCase(), v ->
 		{
 			KeyCode code = Arrays.stream(KeyCode.values()).filter(k -> k.value.equalsIgnoreCase(v)).findFirst().orElse(null);
@@ -453,23 +497,25 @@ public class Machindustry extends Mod
 		});
 
 		machindustrySettingsTable.pref(invisibleSpace);
+		machindustrySettingsTable.sliderPref(_liquidFrequencyName, 10000, 100, 10000, 100, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_liquidBuildTimeName, 100, 10, 1000, 10, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_liquidBuildTotalTimeName, 1000, 100, 10000, 100, v -> Integer.toString(v));
 
-		machindustrySettingsTable.checkPref(_liquidMaskAroundBuildName, true);
+		machindustrySettingsTable.pref(invisibleSpace);
+		machindustrySettingsTable.checkPref(_liquidMaskAroundBuildName, false);
 		machindustrySettingsTable.checkPref(_liquidMaskAroundCoreName, true);
 		machindustrySettingsTable.checkPref(_liquidMaskAroundLiquidName, false);
 		machindustrySettingsTable.checkPref(_liquidMaskAroundSolidName, false);
+		machindustrySettingsTable.checkPref(_liquidIgnoreMaskName, true);
 
 		machindustrySettingsTable.pref(invisibleSpace);
-
-		machindustrySettingsTable.sliderPref(_liquidBuildTimeName, 1000, 100, 10000, 100, v -> Integer.toString(v));
-		machindustrySettingsTable.checkPref(_liquidIgnoreMaskName, true);
 		machindustrySettingsTable.checkPref(_liquidTargetModeName, true);
 		machindustrySettingsTable.checkPref(_liquidReplaceOneName, true);
 
 		machindustrySettingsTable.pref(visibleSpace);
 		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.solid-title")));
-		machindustrySettingsTable.pref(invisibleSpace);
 
+		machindustrySettingsTable.pref(invisibleSpace);
 		machindustrySettingsTable.textPref("solid-key", _solidPathFinderCode.name().toUpperCase(), v ->
 		{
 			KeyCode code = Arrays.stream(KeyCode.values()).filter(k -> k.value.equalsIgnoreCase(v)).findFirst().orElse(null);
@@ -477,16 +523,18 @@ public class Machindustry extends Mod
 		});
 
 		machindustrySettingsTable.pref(invisibleSpace);
+		machindustrySettingsTable.sliderPref(_solidFrequencyName, 10000, 100, 10000, 100, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_solidBuildTimeName, 100, 10, 1000, 10, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_solidBuildTotalTimeName, 1000, 100, 10000, 100, v -> Integer.toString(v));
 
-		machindustrySettingsTable.checkPref(_solidMaskAroundBuildName, true);
+		machindustrySettingsTable.pref(invisibleSpace);
+		machindustrySettingsTable.checkPref(_solidMaskAroundBuildName, false);
 		machindustrySettingsTable.checkPref(_solidMaskAroundCoreName, true);
 		machindustrySettingsTable.checkPref(_solidMaskAroundLiquidName, false);
 		machindustrySettingsTable.checkPref(_solidMaskAroundSolidName, false);
+		machindustrySettingsTable.checkPref(_solidIgnoreMaskName, true);
 
 		machindustrySettingsTable.pref(invisibleSpace);
-
-		machindustrySettingsTable.sliderPref(_solidBuildTimeName, 1000, 100, 10000, 100, v -> Integer.toString(v));
-		machindustrySettingsTable.checkPref(_solidIgnoreMaskName, true);
 		machindustrySettingsTable.checkPref(_solidTargetModeName, true);
 		machindustrySettingsTable.checkPref(_solidDisableSorterName, true);
 		machindustrySettingsTable.checkPref(_solidReplaceOneName, true);
@@ -497,11 +545,37 @@ public class Machindustry extends Mod
 		mindustrySettingsTable.add(machindustrySettingsTable);
 	}
 
+	private void DrawRectangleOverlay(final int x1, final int y1, final int x2, final int y2, final Color color)
+	{
+		final float tilesize = (float)Vars.tilesize;
+
+		final float offset = tilesize * 0.5F;
+		final float width = tilesize * 0.25F;
+
+		final float worldX1 = (float)x1 * tilesize;
+		final float worldY1 = (float)y1 * tilesize;
+		final float worldX2 = (float)x2 * tilesize;
+		final float worldY2 = (float)y2 * tilesize;
+
+		final float w = Math.abs(worldX1 - worldX2);
+		final float h = Math.abs(worldY1 - worldY2);
+		final float x = Math.min(worldX1, worldX2) + w / 2F;
+		final float y = Math.min(worldY1, worldY2) + h / 2F;
+
+		Draw.color(color.r, color.g, color.b, color.a);
+		Fill.rect(x, y - offset - (h - width) / 2F, w + tilesize, width);
+		Fill.rect(x, y + offset + (h - width) / 2F, w + tilesize, width);
+		Fill.rect(x - offset - (w - width) / 2F, y, width, h + tilesize - width * 2F);
+		Fill.rect(x + offset + (w - width) / 2F, y, width, h + tilesize - width * 2F);
+		Draw.reset();
+	}
+
 	private void DrawSquareOverlay(final int x, final int y, final Color color)
 	{
 		final float tilesize = (float)Vars.tilesize;
-		final float worldX = ((float)x) * tilesize;
-		final float worldY = ((float)y) * tilesize;
+
+		final float worldX = (float)x * tilesize;
+		final float worldY = (float)y * tilesize;
 
 		Draw.color(color.r, color.g, color.b, color.a);
 		Fill.rect(worldX, worldY, tilesize, tilesize);
@@ -611,13 +685,18 @@ public class Machindustry extends Mod
 				if (Expired(endTime, taskEpoch))
 					return null;
 
+				final long aStartTime = System.nanoTime();
 				final LinkedList<BuildPlan> buildPlans = function.apply
 				(
 					new Pair<Point, Point>(pointList1.get(k % size1), pointList2.get(k % size2))
 				);
+				final long aEndTime = System.nanoTime();
 
 				if (buildPlans != null)
+				{
+					_resultTimeAlgorithm = (aEndTime - aStartTime) / (long)1000000;
 					return buildPlans;
+				}
 			}
 
 			for (int i = 0; i < size1; ++i)
@@ -627,13 +706,18 @@ public class Machindustry extends Mod
 						if (Expired(endTime, taskEpoch))
 							return null;
 
+						final long aStartTime = System.nanoTime();
 						final LinkedList<BuildPlan> buildPlans = function.apply
 						(
 							new Pair<Point, Point>(pointList1.get(i), pointList2.get(j))
 						);
+						final long aEndTime = System.nanoTime();
 
 						if (buildPlans != null)
+						{
+							_resultTimeAlgorithm = (aEndTime - aStartTime) / (long)1000000;
 							return buildPlans;
+						}
 					}
 		}
 
@@ -651,7 +735,7 @@ public class Machindustry extends Mod
 		final long taskEpoch
 	)
 	{
-		final long endTime = System.nanoTime() + (long)Core.settings.getInt(_beamBuildTimeName) * (long)1000000;
+		final long endTime = System.nanoTime() + (long)Core.settings.getInt(_beamBuildTotalTimeName) * (long)1000000;
 
 		final boolean ignoreMask = Core.settings.getBool(_beamIgnoreMaskName);
 		final boolean targetMode = Core.settings.getBool(_beamTargetModeName);
@@ -683,17 +767,24 @@ public class Machindustry extends Mod
 		if (Expired(endTime, taskEpoch))
 			return null;
 
-		final LinkedList<BuildPlan> buildPlans = pathFinder.BuildPath(x1, y1, x2, y2, targetMode, _masksMap);
+		long aStartTime = System.nanoTime();
+		LinkedList<BuildPlan> buildPlans = pathFinder.BuildPath(x1, y1, x2, y2, targetMode, _masksMap);
+		long aEndTime = System.nanoTime();
 
 		if (buildPlans == null && ignoreMask)
 		{
 			if (Expired(endTime, taskEpoch))
 				return null;
 
-			return pathFinder.BuildPath(x1, y1, x2, y2, targetMode, null);
+			aStartTime = System.nanoTime();
+			buildPlans = pathFinder.BuildPath(x1, y1, x2, y2, targetMode, null);
+			aEndTime = System.nanoTime();
 		}
-		else
-			return buildPlans;
+
+		if (buildPlans != null)
+			_resultTimeAlgorithm = (aEndTime - aStartTime) / (long)1000000;
+
+		return buildPlans;
 	}
 
 	private LinkedList<BuildPlan> FindPath
@@ -707,7 +798,7 @@ public class Machindustry extends Mod
 		final long taskEpoch
 	)
 	{
-		final long endTime = System.nanoTime() + (long)Core.settings.getInt(_liquidBuildTimeName) * (long)1000000;
+		final long endTime = System.nanoTime() + (long)Core.settings.getInt(_liquidBuildTotalTimeName) * (long)1000000;
 
 		final boolean ignoreMask = Core.settings.getBool(_liquidIgnoreMaskName);
 		final boolean targetMode = Core.settings.getBool(_liquidTargetModeName);
@@ -787,7 +878,7 @@ public class Machindustry extends Mod
 		final long taskEpoch
 	)
 	{
-		final long endTime = System.nanoTime() + (long)Core.settings.getInt(_solidBuildTimeName) * (long)1000000;
+		final long endTime = System.nanoTime() + (long)Core.settings.getInt(_solidBuildTotalTimeName) * (long)1000000;
 
 		final boolean ignoreMask = Core.settings.getBool(_solidIgnoreMaskName);
 		final boolean targetMode = Core.settings.getBool(_solidTargetModeName);
@@ -904,6 +995,111 @@ public class Machindustry extends Mod
 		}
 
 		return null;
+	}
+
+	private void FindVent(final int x1, final int y1, final int x2, final int y2)
+	{
+		final int xMax = Math.min(x1 >= x2 ? x1 : x2, _width - 2);
+		final int xMin = Math.max(x1 >= x2 ? x2 : x1, 1);
+
+		final int yMax = Math.min(y1 >= y2 ? y1 : y2, _height - 2);
+		final int yMin = Math.max(y1 >= y2 ? y2 : y1, 1);
+
+		final Team team = Vars.player.team();
+		final Tiles tiles = Vars.world.tiles;
+
+		if (team == null)
+			throw new NullPointerException("Vars.player.team is null");
+
+		if (tiles == null)
+			throw new NullPointerException("Vars.world.tiles is null");
+
+		final Queue<BuildPlan> queue = Vars.player.unit().plans;
+		Point turbine = null;
+
+		final int step = _width - (xMax - xMin + 1);
+		for (int y = yMin, i = xMin + yMin * _width; y <= yMax; ++y, i += step)
+			CHECK_VENT:
+			for (int x = xMin; x <= xMax; ++x, ++i)
+			{
+				if (tiles.geti(i).floor().attributes.get(Attribute.steam) <= 0F)
+					continue CHECK_VENT;
+
+				final int xxMax = x + 1;
+				final int xxMin = x - 1;
+
+				final int yyMax = y + 1;
+				final int yyMin = y - 1;
+
+				final int sstep = _width - 3;
+				for (int yy = yyMin, ii = xxMin + yyMin * _width; yy <= yyMax; ++yy, ii += sstep)
+					for (int xx = xxMin; xx <= xxMax; ++xx, ++ii)
+						if (tiles.geti(ii).floor().attributes.get(Attribute.steam) <= 0F)
+							continue CHECK_VENT;
+
+				if (Build.validPlace(Blocks.turbineCondenser, team, x, y, -1))
+				{
+					final Point point = new Point(x, y, i);
+
+					if (turbine != null)
+						_taskQueue.AddTask(new PathTask(point.x, point.y, turbine.x, turbine.y, PathType.BEAM));
+
+					queue.addLast(new BuildPlan(x, y, -1, Blocks.turbineCondenser));
+					turbine = point;
+				}
+			}
+
+		if (turbine != null)
+		{
+			PowerGraph powerGraph = null;
+			float capacity = -1F;
+
+			for (final Building build : Vars.indexer.getFlagged(team, BlockFlag.generator))
+				if (build.power != null)
+				{
+					final PowerGraph pg = build.power.graph;
+					final float pgCapacity = pg.getLastCapacity();
+
+					if (capacity < pgCapacity)
+					{
+						powerGraph = pg;
+						capacity = pgCapacity;
+					}
+				}
+
+			for (final Building build : Vars.indexer.getFlagged(team, BlockFlag.reactor))
+				if (build.power != null)
+				{
+					final PowerGraph pg = build.power.graph;
+					final float pgCapacity = pg.getLastCapacity();
+
+					if (capacity < pgCapacity)
+					{
+						powerGraph = pg;
+						capacity = pgCapacity;
+					}
+				}
+
+			if (powerGraph != null)
+			{
+				Building cBuild = null;
+				int cDistance = Integer.MAX_VALUE;
+
+				for (final Building build : powerGraph.all)
+				{
+					final int distance = Math.abs((int)build.tile.x - turbine.x) + Math.abs((int)build.tile.y - turbine.y);
+
+					if (cDistance > distance)
+					{
+						cBuild = build;
+						cDistance = distance;
+					}
+				}
+
+				if (cBuild != null)
+					_taskQueue.AddTask(new PathTask(turbine.x, turbine.y, (int)cBuild.tile.x, (int)cBuild.tile.y, PathType.BEAM));
+			}
+		}
 	}
 
 	private Point GetCurrentPoint()
@@ -1055,8 +1251,11 @@ public class Machindustry extends Mod
 		if (build2 != null)
 			tile2 = build2.tile;
 
-		final ArrayList<Point> p1 = GetOuterEdgePoints(block1, (int)tile1.x, (int)tile1.y, i1);
-		final ArrayList<Point> p2 = GetInnerEdgePoints(block2, (int)tile2.x, (int)tile2.y, i2);
+		if (tile1 == tile2)
+			return new Pair<ArrayList<Point>, ArrayList<Point>>(new ArrayList<Point>(0), new ArrayList<Point>(0));
+
+		final ArrayList<Point> p1 = GetOuterEdgePoints(block1, (int)tile1.x, (int)tile1.y, (int)tile1.x + (int)tile1.y * _width);
+		final ArrayList<Point> p2 = GetInnerEdgePoints(block2, (int)tile2.x, (int)tile2.y, (int)tile2.x + (int)tile2.y * _width);
 
 		final int s1 = p1.size();
 		final int s2 = p2.size();
@@ -1115,12 +1314,6 @@ public class Machindustry extends Mod
 		_width = Vars.world.width();
 		_size = _height * _width;
 
-		final boolean polygonSZ = Core.settings.getBool(_polygonSafeZoneName);
-		final float radiusSZ = (float)Core.settings.getInt(_radiusSafeZoneName);
-
-		final long freq = (long)Core.settings.getInt(_frequencyName);
-		final long time = (long)Core.settings.getInt(_buildTimeName) * (long)1000000;
-
 		_taskQueue.ClearTasks();
 		++_taskEpoch;
 
@@ -1128,11 +1321,39 @@ public class Machindustry extends Mod
 			_worldState.close();
 
 		_masksMap = new boolean[_size];
-		_worldState = new WorldState(_height, _width, polygonSZ, radiusSZ);
+		_worldState = new WorldState
+		(
+			_height,
+			_width,
+			Core.settings.getBool(_polygonSafeZoneName),
+			(float)Core.settings.getInt(_radiusSafeZoneName),
+			_showResultRunnable,
+			null
+		);
 
-		_beamPathFinder = new BeamPathFinder(_height, _width, freq, time / (long)4);
-		_liquidPathFinder = new LiquidPathFinder(_height, _width, freq, time);
-		_solidPathFinder = new SolidPathFinder(_height, _width, freq, time);
+		_beamPathFinder = new BeamPathFinder
+		(
+			_height,
+			_width,
+			(long)Core.settings.getInt(_beamFrequencyName),
+			(long)Core.settings.getInt(_beamBuildTimeName)
+		);
+
+		_liquidPathFinder = new LiquidPathFinder
+		(
+			_height,
+			_width,
+			(long)Core.settings.getInt(_liquidFrequencyName),
+			(long)Core.settings.getInt(_liquidBuildTimeName)
+		);
+
+		_solidPathFinder = new SolidPathFinder
+		(
+			_height,
+			_width,
+			(long)Core.settings.getInt(_solidFrequencyName),
+			(long)Core.settings.getInt(_solidBuildTimeName)
+		);
 	}
 
 	private void MaskPoints(final boolean[] masks, final boolean mask, final Point a, final Point b)
@@ -1192,6 +1413,43 @@ public class Machindustry extends Mod
 		}
 	}
 
+	private void ShowResultRunnable()
+	{
+		String time = " { ";
+
+		if (_resultTimeAlgorithm == -1)
+			time += "-";
+		else
+		{
+			time += _resultTimeAlgorithm;
+			_resultTimeAlgorithm = -1;
+		}
+
+		time += _millisecondMessage1;
+
+		if (_resultTimeTotal == -1)
+			time += "-";
+		else
+		{
+			time += _resultTimeTotal;
+			_resultTimeTotal = -1;
+		}
+
+		time += _millisecondMessage2;
+
+		if (_resultFailure)
+		{
+			_resultFailure = false;
+			Vars.ui.showInfoToast(_failureMessage + time, 1F);
+		}
+
+		if (_resultSuccess)
+		{
+			_resultSuccess = false;
+			Vars.ui.showInfoToast(_successMessage + time, 1F);
+		}
+	}
+
 	private void TaskWorker()
 	{
 		while (_running)
@@ -1216,6 +1474,7 @@ public class Machindustry extends Mod
 
 				try
 				{
+					final long tStartTime = System.nanoTime();
 					switch (task.type)
 					{
 						case BEAM:
@@ -1233,6 +1492,9 @@ public class Machindustry extends Mod
 						default:
 							break;
 					}
+					final long tEndTime = System.nanoTime();
+
+					_resultTimeTotal = (tEndTime - tStartTime) / (long)1000000;
 				}
 				catch (Exception e)
 				{
@@ -1252,8 +1514,11 @@ public class Machindustry extends Mod
 					e.printStackTrace();
 				}
 
-				if (buildPlans != null)
+				if (buildPlans == null)
+					_resultFailure = true;
+				else
 				{
+					_resultSuccess = true;
 					BuildPlan[] buildPlansArray = buildPlans.toArray(new BuildPlan[buildPlans.size()]);
 
 					while (_running && !_worldState.BuildPlansMachinary.compareAndSet(null, buildPlansArray))
@@ -1273,34 +1538,27 @@ public class Machindustry extends Mod
 	{
 		if (DoHandle())
 		{
-			Color color = new Color(0F, 0F, 0F, 0.25F);
-			boolean value = false;
+			Point currentPoint = GetCurrentPoint();
+
+			if (_turbineFirstPoint != null)
+				DrawRectangleOverlay(_turbineFirstPoint.x, _turbineFirstPoint.y, currentPoint.x, currentPoint.y, _turbinePointColor);
 
 			if (_beamFirstPoint != null)
 			{
-				DrawSquareOverlay(_beamFirstPoint.x, _beamFirstPoint.y, new Color(1F, 0F, 0F, 0.25F));
-				color.r = 1F;
-				value = true;
+				DrawSquareOverlay(_beamFirstPoint.x, _beamFirstPoint.y, _beamPointColor);
+				DrawSquareOverlay(currentPoint.x, currentPoint.y, _beamPointColor);
 			}
 
 			if (_liquidFirstPoint != null)
 			{
-				DrawSquareOverlay(_liquidFirstPoint.x, _liquidFirstPoint.y, new Color(0F, 1F, 0F, 0.25F));
-				color.g = 1F;
-				value = true;
+				DrawSquareOverlay(_liquidFirstPoint.x, _liquidFirstPoint.y, _liquidPointColor);
+				DrawSquareOverlay(currentPoint.x, currentPoint.y, _liquidPointColor);
 			}
 
 			if (_solidFirstPoint != null)
 			{
-				DrawSquareOverlay(_solidFirstPoint.x, _solidFirstPoint.y, new Color(0F, 0F, 1F, 0.25F));
-				color.b = 1F;
-				value = true;
-			}
-
-			if (value)
-			{
-				Point currentPoint = GetCurrentPoint();
-				DrawSquareOverlay(currentPoint.x, currentPoint.y, color);
+				DrawSquareOverlay(_solidFirstPoint.x, _solidFirstPoint.y, _solidPointColor);
+				DrawSquareOverlay(currentPoint.x, currentPoint.y, _solidPointColor);
 			}
 		}
 	}
@@ -1323,6 +1581,12 @@ public class Machindustry extends Mod
 	@Override
 	public void init()
 	{
+		_failureMessage = Core.bundle.get("machindustry.failure-message");
+		_successMessage = Core.bundle.get("machindustry.success-message");
+
+		_millisecondMessage1 = " " + Core.bundle.get("machindustry.ms") + "; ";
+		_millisecondMessage2 = " " + Core.bundle.get("machindustry.ms") + " }";
+
 		if (!Core.settings.getBool(_name))
 		{
 			Core.settings.put(_name, true);
@@ -1344,7 +1608,9 @@ public class Machindustry extends Mod
 		{
 			if (DoHandle())
 			{
-				if (code == _beamPathFinderCode)
+				if (code == _turbineBuilderCode)
+					_turbineFirstPoint = GetCurrentPoint();
+				else if (code == _beamPathFinderCode)
 					_beamFirstPoint = GetCurrentPoint();
 				else if (code == _liquidPathFinderCode)
 					_liquidFirstPoint = GetCurrentPoint();
@@ -1364,7 +1630,15 @@ public class Machindustry extends Mod
 		{
 			if (DoHandle())
 			{
-				if (code == _beamPathFinderCode)
+				if (code == _turbineBuilderCode)
+				{
+					_turbineLastPoint = GetCurrentPoint();
+					FindVent(_turbineFirstPoint.x, _turbineFirstPoint.y, _turbineLastPoint.x, _turbineLastPoint.y);
+
+					_turbineFirstPoint = null;
+					_turbineLastPoint = null;
+				}
+				else if (code == _beamPathFinderCode)
 				{
 					_beamLastPoint = GetCurrentPoint();
 					_taskQueue.AddTask(new PathTask
@@ -1397,7 +1671,6 @@ public class Machindustry extends Mod
 				else if (code == _solidPathFinderCode)
 				{
 					_solidLastPoint = GetCurrentPoint();
-					DisableRouterSorter(_solidFirstPoint.x, _solidFirstPoint.y);
 					_taskQueue.AddTask(new PathTask
 					(
 						_solidFirstPoint.x,
@@ -1406,6 +1679,8 @@ public class Machindustry extends Mod
 						_solidLastPoint.y,
 						PathType.SOLID
 					));
+
+					DisableRouterSorter(_solidFirstPoint.x, _solidFirstPoint.y);
 
 					_solidFirstPoint = null;
 					_solidLastPoint = null;
