@@ -205,7 +205,7 @@ public class BeamPathFinder
 	 * @param tile2      - Last energy tile of the path (destination coordinates)
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	*/
-	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, boolean targetMode)
+	public LinkedList<BuildPlan> BuildPath(final Tile tile1, final Tile tile2, final boolean targetMode)
 	{
 		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, targetMode, null);
 	}
@@ -219,7 +219,7 @@ public class BeamPathFinder
 	 * @param y2         - Last energy tile of the path (destination coordinate)
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	*/
-	public LinkedList<BuildPlan> BuildPath(int x1, int y1, int x2, int y2, boolean targetMode)
+	public LinkedList<BuildPlan> BuildPath(final int x1, final int y1, final int x2, final int y2, final boolean targetMode)
 	{
 		return BuildPath(x1, y1, x2, y2, targetMode, null);
 	}
@@ -232,7 +232,7 @@ public class BeamPathFinder
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	 * @param masks      - Boolean map that protects tiles from pathing
 	*/
-	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, boolean targetMode, boolean[] masks)
+	public LinkedList<BuildPlan> BuildPath(final Tile tile1, final Tile tile2, final boolean targetMode, final boolean[] masks)
 	{
 		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, targetMode, masks);
 	}

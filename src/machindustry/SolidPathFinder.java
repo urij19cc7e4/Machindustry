@@ -1293,9 +1293,26 @@ public class SolidPathFinder
 	 * @param notRotate  - Excluded rotation of first tile, -1 if not exclude
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	*/
-	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, int notRotate, boolean targetMode)
+	public LinkedList<BuildPlan> BuildPath
+	(
+		final Tile tile1,
+		final Tile tile2,
+		final int notRotate,
+		final boolean targetMode
+	)
 	{
-		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, notRotate, targetMode, null);
+		return BuildPath
+		(
+			(int)tile1.x,
+			(int)tile1.y,
+			(int)tile2.x,
+			(int)tile2.y,
+			-1,
+			-1,
+			notRotate,
+			targetMode,
+			null
+		);
 	}
 
 	/**
@@ -1308,9 +1325,28 @@ public class SolidPathFinder
 	 * @param notRotate  - Excluded rotation of first tile, -1 if not exclude
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	*/
-	public LinkedList<BuildPlan> BuildPath(int x1, int y1, int x2, int y2, int notRotate, boolean targetMode)
+	public LinkedList<BuildPlan> BuildPath
+	(
+		final int x1,
+		final int y1,
+		final int x2,
+		final int y2,
+		final int notRotate,
+		final boolean targetMode
+	)
 	{
-		return BuildPath(x1, y1, x2, y2, notRotate, targetMode, null);
+		return BuildPath
+		(
+			x1,
+			y1,
+			x2,
+			y2,
+			-1,
+			-1,
+			notRotate,
+			targetMode,
+			null
+		);
 	}
 
 	/**
@@ -1318,13 +1354,33 @@ public class SolidPathFinder
 	 * @return             List of building plans if success, null if failure
 	 * @param tile1      - First tile of the path (starting coordinates)
 	 * @param tile2      - Tile after the last tile of the path (destination coordinates)
+	 * @param overrideXY - Tile with overriden state, [-1; -1] if no such tile (override coordinates)
 	 * @param notRotate  - Excluded rotation of first tile, -1 if not exclude
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	 * @param masks      - Boolean map that protects tiles from pathing
 	*/
-	public LinkedList<BuildPlan> BuildPath(Tile tile1, Tile tile2, int notRotate, boolean targetMode, boolean[] masks)
+	public LinkedList<BuildPlan> BuildPath
+	(
+		final Tile tile1,
+		final Tile tile2,
+		final Tile overrideXY,
+		final int notRotate,
+		final boolean targetMode,
+		final boolean[] masks
+	)
 	{
-		return BuildPath((int)tile1.x, (int)tile1.y, (int)tile2.x, (int)tile2.y, notRotate, targetMode, masks);
+		return BuildPath
+		(
+			(int)tile1.x,
+			(int)tile1.y,
+			(int)tile2.x,
+			(int)tile2.y,
+			(int)overrideXY.x,
+			(int)overrideXY.y,
+			notRotate,
+			targetMode,
+			masks
+		);
 	}
 
 	/**
@@ -1334,6 +1390,8 @@ public class SolidPathFinder
 	 * @param y1         - First tile of the path (starting coordinate)
 	 * @param x2         - Tile after the last tile of the path (destination coordinate)
 	 * @param y2         - Tile after the last tile of the path (destination coordinate)
+	 * @param overrideX  - Tile with overriden state, -1 if no such tile (override coordinate)
+	 * @param overrideY  - Tile with overriden state, -1 if no such tile (override coordinate)
 	 * @param notRotate  - Excluded rotation of first tile, -1 if not exclude
 	 * @param targetMode - Determines whether to keep target/previous direction settings
 	 * @param masks      - Boolean map that protects tiles from pathing
@@ -1344,6 +1402,8 @@ public class SolidPathFinder
 		int y1,
 		final int x2,
 		final int y2,
+		final int overrideX,
+		final int overrideY,
 		final int notRotate,
 		final boolean targetMode,
 		final boolean[] masks
@@ -1365,7 +1425,7 @@ public class SolidPathFinder
 			return new LinkedList<BuildPlan>();
 
 		// Check if first tile is unbuildable
-		if (_map[idx1] == PROTECT || _map[idx1] == BLOCK)
+		if ((_map[idx1] == PROTECT || _map[idx1] == BLOCK) && overrideX != x1 && overrideY != y1)
 			return null;
 
 		/**
@@ -1390,6 +1450,9 @@ public class SolidPathFinder
 				else
 					aMap[i] = _map[i];
 		}
+
+		if (overrideX >= 0 && overrideX < _width && overrideY >= 0 && overrideY < _height)
+			aMap[overrideX + overrideY * _width] = EMPTY;
 
 		// Mask tile after last tile with block
 		aMap[idx2] = _map[idx2] == PROTECT ? PROTECT : BLOCK;

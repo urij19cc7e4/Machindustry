@@ -3,6 +3,7 @@ package machindustry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import arc.Core;
@@ -18,8 +19,10 @@ import arc.scene.event.InputEvent;
 import arc.scene.event.InputListener;
 import arc.scene.style.TextureRegionDrawable;
 import arc.scene.ui.Label;
+import arc.scene.ui.ScrollPane;
+import arc.scene.ui.layout.Table;
 import arc.struct.Queue;
-import arc.struct.Seq;
+import arc.util.Scaling;
 import machindustry.PathTask.PathType;
 import mindustry.Vars;
 import mindustry.content.Blocks;
@@ -29,8 +32,8 @@ import mindustry.game.EventType.Trigger;
 import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.game.Team;
 import mindustry.gen.Building;
-import mindustry.graphics.MultiPacker.PageType;
 import mindustry.mod.Mod;
+import mindustry.ui.dialogs.BaseDialog;
 import mindustry.ui.dialogs.SettingsMenuDialog.SettingsCategory;
 import mindustry.ui.dialogs.SettingsMenuDialog.SettingsTable;
 import mindustry.ui.dialogs.SettingsMenuDialog.SettingsTable.Setting;
@@ -126,9 +129,9 @@ public class Machindustry extends Mod
 	*/
 	private long _taskEpoch = 0;
 
-	private KeyCode _beamPathFinderCode = KeyCode.y;
+	private KeyCode _beamPathFinderCode = KeyCode.i;
 	private KeyCode _liquidPathFinderCode = KeyCode.u;
-	private KeyCode _solidPathFinderCode = KeyCode.i;
+	private KeyCode _solidPathFinderCode = KeyCode.y;
 	private KeyCode _turbineBuilderCode = KeyCode.o;
 
 	private int _height = -1;
@@ -171,8 +174,7 @@ public class Machindustry extends Mod
 			if (tiles == null)
 				throw new NullPointerException("Vars.world.tiles is null");
 
-			final Queue<BuildPlan> queue = Vars.player.unit().plans;
-			final BuildPlan buildPlan = GetPlanIntersection(queue, x, y);
+			final BuildPlan buildPlan = GetPlanIntersection(Vars.player.unit().plans, x, y);
 
 			final Tile tile = tiles.get(x, y);
 			final Block block = buildPlan == null ? tile.block() : buildPlan.block;
@@ -191,7 +193,7 @@ public class Machindustry extends Mod
 			}
 		}
 	}
-	
+
 	private static boolean DoHandle()
 	{
 		return !Core.scene.hasKeyboard()
@@ -233,7 +235,7 @@ public class Machindustry extends Mod
 	{
 		BuildPlan rBuildPlan = null;
 
-		for (BuildPlan buildPlan : buildPlans)
+		for (final BuildPlan buildPlan : buildPlans)
 		{
 			final Block block = buildPlan.block;
 
@@ -254,7 +256,7 @@ public class Machindustry extends Mod
 	{
 		BuildPlan rBuildPlan = null;
 
-		for (BuildPlan buildPlan : buildPlans)
+		for (final BuildPlan buildPlan : buildPlans)
 		{
 			final Block block = buildPlan.block;
 
@@ -277,10 +279,10 @@ public class Machindustry extends Mod
 		{
 			case 0:
 				return "duct-router";
-					
+
 			case 1:
 				return "overflow-duct";
-					
+
 			case 2:
 				return "underflow-duct";
 
@@ -341,7 +343,15 @@ public class Machindustry extends Mod
 		System.out.println("[Machindustry] " + x);
 	}
 
-	private static void ReplaceLiquid(final BuildPlan[] playerBuildPlans, final LinkedList<BuildPlan> buildPlans, final int x, final int y)
+	private static void ReplaceLiquid
+	(
+		final BuildPlan[] playerBuildPlans,
+		final LinkedList<BuildPlan> buildPlans,
+		final int x1,
+		final int y1,
+		final int x,
+		final int y
+	)
 	{
 		if (Core.settings.getBool(_liquidReplaceOneName))
 		{
@@ -362,13 +372,26 @@ public class Machindustry extends Mod
 
 			final boolean buildExist = buildPlan != null || (build != null && build.team == team);
 			final int rotation = buildPlan == null ? (build == null ? -1 : build.rotation) : buildPlan.rotation;
-			
-			if (buildExist && block == Blocks.reinforcedConduit)
-				buildPlans.addLast(new BuildPlan(x, y, rotation, Blocks.reinforcedLiquidRouter));
+
+			if (buildExist)
+			{
+				if (block == Blocks.reinforcedConduit)
+					buildPlans.addLast(new BuildPlan(x, y, rotation, Blocks.reinforcedLiquidRouter));
+				else if (block == Blocks.reinforcedBridgeConduit)
+					buildPlans.addLast(new BuildPlan(x, y, GetRotate(x, y, x1, y1), Blocks.reinforcedBridgeConduit));
+			}
 		}
 	}
 
-	private static void ReplaceSolid(final BuildPlan[] playerBuildPlans, final LinkedList<BuildPlan> buildPlans, final int x, final int y)
+	private static void ReplaceSolid
+	(
+		final BuildPlan[] playerBuildPlans,
+		final LinkedList<BuildPlan> buildPlans,
+		final int x1,
+		final int y1,
+		final int x,
+		final int y
+	)
 	{
 		if (Core.settings.getBool(_solidReplaceOneName))
 		{
@@ -396,11 +419,11 @@ public class Machindustry extends Mod
 				case 0:
 					replaceWithBlock = Blocks.ductRouter;
 					break;
-					
+
 				case 1:
 					replaceWithBlock = Blocks.overflowDuct;
 					break;
-					
+
 				case 2:
 					replaceWithBlock = Blocks.underflowDuct;
 					break;
@@ -408,6 +431,14 @@ public class Machindustry extends Mod
 				default:
 					replaceWithBlock = block;
 					break;
+			}
+
+			if (buildExist)
+			{
+				if (buildExist && (block == Blocks.duct || block == Blocks.armoredDuct))
+					buildPlans.addLast(new BuildPlan(x, y, rotation, replaceWithBlock));
+				else if (block == Blocks.ductBridge)
+					buildPlans.addLast(new BuildPlan(x, y, GetRotate(x, y, x1, y1), Blocks.ductBridge));
 			}
 
 			if (buildExist && (block == Blocks.duct || block == Blocks.armoredDuct))
@@ -437,10 +468,106 @@ public class Machindustry extends Mod
 		});
 	}
 
+	private static void Tutorial()
+	{
+		final float padI = 100F;
+		final float padT = 25F;
+
+		final Scaling scaling = Scaling.fit;
+		final float width = Core.scene.getWidth() * 0.9F;
+
+		final BaseDialog baseDialog = new BaseDialog(Core.bundle.get("machindustry.welcome-title"));
+		final Table table = new Table();
+
+		table.labelWrap(Core.bundle.get("machindustry.welcome-text")).maxWidth(Core.scene.getWidth() * 0.5F).fillX().padTop(padI).get().setAlignment(1);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-01-turbine-stage-1"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-01-turbine-stage-2"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-01-turbine-stage-3"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-02-beryllium-stage-1"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-02-beryllium-stage-2"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-03-electrolyzer-stage-1"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-03-electrolyzer-stage-2"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-04-hydrogen-stage-1"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-04-hydrogen-stage-2"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-05-beryllium-electrolyzer-hydrogen-stage-3"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-06-graphite-stage-1"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-06-graphite-stage-2"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-07-hydrogen-stage-1"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-07-hydrogen-stage-2"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-08-graphite-hydrogen-stage-3"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-09-graphite-stage-1"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-09-graphite-stage-2"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-10-silicon-stage-1"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-10-silicon-stage-2"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-11-graphite-silicon-stage-3"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-12-turbine-stage-1"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-12-turbine-stage-2"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-12-turbine-stage-3"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-12-turbine-stage-4"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-12-turbine-stage-5"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
+		table.row();
+
+		ScrollPane scrollPane = new ScrollPane(table);
+		baseDialog.cont.top().add(scrollPane).growX().pad(padT, padT, padT, padT);
+
+		baseDialog.addCloseButton();
+		baseDialog.show();
+	}
+
 	private void BuildSettingsTable(SettingsTable mindustrySettingsTable)
 	{
 		Setting visibleSpace = new SpaceSetting(Color.gold, 25F, 0F, 25F, 0F);
-		Setting invisibleSpace = new SpaceSetting(Color.clear, 5F, 0F, 5F, 0F);
+		Setting invisibleSpace = new SpaceSetting(Color.clear, 10F, 0F, 10F, 0F);
 
 		SettingsTable machindustrySettingsTable = new SettingsTable();
 
@@ -472,7 +599,7 @@ public class Machindustry extends Mod
 		});
 
 		machindustrySettingsTable.pref(invisibleSpace);
-		machindustrySettingsTable.sliderPref(_beamFrequencyName, 10000, 100, 10000, 100, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_beamFrequencyName, 1000, 100, 10000, 100, v -> Integer.toString(v));
 		machindustrySettingsTable.sliderPref(_beamBuildTimeName, 20, 2, 200, 2, v -> Integer.toString(v));
 		machindustrySettingsTable.sliderPref(_beamBuildTotalTimeName, 200, 20, 2000, 20, v -> Integer.toString(v));
 
@@ -497,7 +624,7 @@ public class Machindustry extends Mod
 		});
 
 		machindustrySettingsTable.pref(invisibleSpace);
-		machindustrySettingsTable.sliderPref(_liquidFrequencyName, 10000, 100, 10000, 100, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_liquidFrequencyName, 1000, 100, 10000, 100, v -> Integer.toString(v));
 		machindustrySettingsTable.sliderPref(_liquidBuildTimeName, 100, 10, 1000, 10, v -> Integer.toString(v));
 		machindustrySettingsTable.sliderPref(_liquidBuildTotalTimeName, 1000, 100, 10000, 100, v -> Integer.toString(v));
 
@@ -523,7 +650,7 @@ public class Machindustry extends Mod
 		});
 
 		machindustrySettingsTable.pref(invisibleSpace);
-		machindustrySettingsTable.sliderPref(_solidFrequencyName, 10000, 100, 10000, 100, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_solidFrequencyName, 1000, 100, 10000, 100, v -> Integer.toString(v));
 		machindustrySettingsTable.sliderPref(_solidBuildTimeName, 100, 10, 1000, 10, v -> Integer.toString(v));
 		machindustrySettingsTable.sliderPref(_solidBuildTotalTimeName, 1000, 100, 10000, 100, v -> Integer.toString(v));
 
@@ -545,6 +672,58 @@ public class Machindustry extends Mod
 		mindustrySettingsTable.add(machindustrySettingsTable);
 	}
 
+	private Point CanOverridePoint(final WorldState worldState, final int x, final int y, final int r)
+	{
+		final Team team = Vars.player.team();
+		final Tiles tiles = Vars.world.tiles;
+
+		if (team == null)
+			throw new NullPointerException("Vars.player.team is null");
+
+		if (tiles == null)
+			throw new NullPointerException("Vars.world.tiles is null");
+
+		int overrideX = -1;
+		int overrideY = -1;
+
+		switch (r)
+		{
+			case 0:
+				overrideX = x + 1;
+				overrideY = y;
+				break;
+
+			case 1:
+				overrideX = x;
+				overrideY = y + 1;
+				break;
+
+			case 2:
+				overrideX = x - 1;
+				overrideY = y;
+				break;
+
+			case 3:
+				overrideX = x;
+				overrideY = y - 1;
+				break;
+
+			default:
+				break;
+		}
+
+		if (overrideX != -1 || overrideX >= 0 || overrideX < _width || overrideY != -1 || overrideY >= 0 || overrideY < _height)
+		{
+			final BuildPlan aBuildPlan = GetPlanIntersection(worldState.BuildPlans, overrideX, overrideY);
+			final int overrideI = overrideX + overrideY * _width;
+
+			if (aBuildPlan == null && !worldState.Map[overrideI])
+				return new Point(overrideX, overrideY, overrideI);
+		}
+
+		return new Point(-1, -1, -1);
+	}
+
 	private void DrawRectangleOverlay(final int x1, final int y1, final int x2, final int y2, final Color color)
 	{
 		final float tilesize = (float)Vars.tilesize;
@@ -559,14 +738,14 @@ public class Machindustry extends Mod
 
 		final float w = Math.abs(worldX1 - worldX2);
 		final float h = Math.abs(worldY1 - worldY2);
-		final float x = Math.min(worldX1, worldX2) + w / 2F;
-		final float y = Math.min(worldY1, worldY2) + h / 2F;
+		final float x = Math.min(worldX1, worldX2) + w * 0.5F;
+		final float y = Math.min(worldY1, worldY2) + h * 0.5F;
 
 		Draw.color(color.r, color.g, color.b, color.a);
-		Fill.rect(x, y - offset - (h - width) / 2F, w + tilesize, width);
-		Fill.rect(x, y + offset + (h - width) / 2F, w + tilesize, width);
-		Fill.rect(x - offset - (w - width) / 2F, y, width, h + tilesize - width * 2F);
-		Fill.rect(x + offset + (w - width) / 2F, y, width, h + tilesize - width * 2F);
+		Fill.rect(x, y - offset - (h - width) * 0.5F, w + tilesize, width);
+		Fill.rect(x, y + offset + (h - width) * 0.5F, w + tilesize, width);
+		Fill.rect(x - offset - (w - width) * 0.5F, y, width, h + tilesize - width * 2F);
+		Fill.rect(x + offset + (w - width) * 0.5F, y, width, h + tilesize - width * 2F);
 		Draw.reset();
 	}
 
@@ -798,6 +977,15 @@ public class Machindustry extends Mod
 		final long taskEpoch
 	)
 	{
+		final Team team = Vars.player.team();
+		final Tiles tiles = Vars.world.tiles;
+
+		if (team == null)
+			throw new NullPointerException("Vars.player.team is null");
+
+		if (tiles == null)
+			throw new NullPointerException("Vars.world.tiles is null");
+
 		final long endTime = System.nanoTime() + (long)Core.settings.getInt(_liquidBuildTotalTimeName) * (long)1000000;
 
 		final boolean ignoreMask = Core.settings.getBool(_liquidIgnoreMaskName);
@@ -833,14 +1021,72 @@ public class Machindustry extends Mod
 		final Pair<ArrayList<Point>, ArrayList<Point>> pair = GetPoints(worldState.Map, x1, y1, x2, y2);
 		final boolean[] masks = new boolean[5];
 
+		final BuildPlan buildPlan = GetPlanIntersection(worldState.BuildPlans, x1, y1);
+
+		final Tile tile = tiles.get(x1, y1);
+		final Block block = buildPlan == null ? tile.block() : buildPlan.block;
+
+		int zOverrideX = -1;
+		int zOverrideY = -1;
+
+		if (block.isDuct || block == Blocks.ductBridge)
+		{
+			int rotation = -1;
+
+			if (buildPlan == null)
+			{
+				final Building build = tile.build;
+
+				if (build != null && build.team == team)
+					rotation = build.rotation;
+			}
+			else
+				rotation = buildPlan.rotation;
+
+			if (rotation != -1)
+			{
+				final Point override = CanOverridePoint(worldState, x1, y1, rotation);
+
+				zOverrideX = override.x;
+				zOverrideY = override.y;
+			}
+		}
+
+		final int overrideX = zOverrideX;
+		final int overrideY = zOverrideY;
+
+		AtomicReference<Point> firstPoint = new AtomicReference<Point>();
+
 		LinkedList<BuildPlan> buildPlans = FindPath
 		(
 			(p) ->
 			{
+				firstPoint.set(p.a);
+
+				int aOverrideX = -1;
+				int aOverrideY = -1;
+
+				if (overrideX == p.a.x && overrideY == p.a.y)
+				{
+					aOverrideX = overrideX;
+					aOverrideY = overrideY;
+				}
+
 				MaskPoints(masks, true, p.a, p.b);
-				var v = pathFinder.BuildPath(p.a.x, p.a.y, p.b.x, p.b.y, GetRotate(x1, y1, p.a.x, p.a.y), targetMode, _masksMap);
+				LinkedList<BuildPlan> path = pathFinder.BuildPath
+				(
+					p.a.x,
+					p.a.y,
+					p.b.x,
+					p.b.y,
+					aOverrideX,
+					aOverrideY,
+					GetRotate(x1, y1, p.a.x, p.a.y),
+					targetMode,
+					_masksMap
+				);
 				MaskPoints(masks, false, p.a, p.b);
-				return v;
+				return path;
 			},
 			pair.a,
 			pair.b,
@@ -851,7 +1097,32 @@ public class Machindustry extends Mod
 		if (buildPlans == null && ignoreMask && !Expired(endTime, taskEpoch))
 			buildPlans = FindPath
 			(
-				(p) -> pathFinder.BuildPath(p.a.x, p.a.y, p.b.x, p.b.y, GetRotate(x1, y1, p.a.x, p.a.y), targetMode, null),
+				(p) ->
+				{
+					firstPoint.set(p.a);
+
+					int aOverrideX = -1;
+					int aOverrideY = -1;
+
+					if (overrideX == p.a.x && overrideY == p.a.y)
+					{
+						aOverrideX = overrideX;
+						aOverrideY = overrideY;
+					}
+
+					return pathFinder.BuildPath
+					(
+						p.a.x,
+						p.a.y,
+						p.b.x,
+						p.b.y,
+						aOverrideX,
+						aOverrideY,
+						GetRotate(x1, y1, p.a.x, p.a.y),
+						targetMode,
+						null
+					);
+				},
 				pair.a,
 				pair.b,
 				endTime,
@@ -860,7 +1131,8 @@ public class Machindustry extends Mod
 
 		if (buildPlans != null)
 		{
-			ReplaceLiquid(worldState.BuildPlans, buildPlans, x1, y1);
+			final Point point = firstPoint.get();
+			ReplaceLiquid(worldState.BuildPlans, buildPlans, point.x, point.y, x1, y1);
 			return buildPlans;
 		}
 
@@ -878,6 +1150,15 @@ public class Machindustry extends Mod
 		final long taskEpoch
 	)
 	{
+		final Team team = Vars.player.team();
+		final Tiles tiles = Vars.world.tiles;
+
+		if (team == null)
+			throw new NullPointerException("Vars.player.team is null");
+
+		if (tiles == null)
+			throw new NullPointerException("Vars.world.tiles is null");
+
 		final long endTime = System.nanoTime() + (long)Core.settings.getInt(_solidBuildTotalTimeName) * (long)1000000;
 
 		final boolean ignoreMask = Core.settings.getBool(_solidIgnoreMaskName);
@@ -913,36 +1194,33 @@ public class Machindustry extends Mod
 		final Pair<ArrayList<Point>, ArrayList<Point>> pair = GetPoints(worldState.Map, x1, y1, x2, y2);
 		final boolean[] masks = new boolean[5];
 
-		if (!Core.settings.getBool(_solidDisableSorterName))
+		final BuildPlan buildPlan = GetPlanIntersection(worldState.BuildPlans, x1, y1);
+
+		final Tile tile = tiles.get(x1, y1);
+		final Block block = buildPlan == null ? tile.block() : buildPlan.block;
+
+		if ((!Core.settings.getBool(_solidDisableSorterName) && block == Blocks.ductRouter) || block == Blocks.ductUnloader)
 		{
-			final Team team = Vars.player.team();
-			final Tiles tiles = Vars.world.tiles;
+			Object config = null;
+			int rotation = -1;
 
-			if (team == null)
-				throw new NullPointerException("Vars.player.team is null");
-
-			if (tiles == null)
-				throw new NullPointerException("Vars.world.tiles is null");
-
-			final BuildPlan buildPlan = GetPlanIntersection(worldState.BuildPlans, x1, y1);
-
-			final Tile tile = tiles.get(x1, y1);
-			final Block block = buildPlan == null ? tile.block() : buildPlan.block;
-
-			if (block == Blocks.ductRouter)
+			if (buildPlan == null)
 			{
-				int rotation = -1;
+				final Building build = tile.build;
 
-				if (buildPlan == null)
+				if (build != null && build.team == team)
 				{
-					final Building build = tile.build;
-
-					if (build != null && build.team == team)
-						rotation = build.rotation;
+					config = build.config();
+					rotation = build.rotation;
 				}
-				else
-					rotation = buildPlan.rotation;
+			}
+			else
+			{
+				config = buildPlan.config;
+				rotation = buildPlan.rotation;
+			}
 
+			if (config != null || block == Blocks.ductUnloader)
 				switch (rotation)
 				{
 					case 0:
@@ -960,17 +1238,69 @@ public class Machindustry extends Mod
 					default:
 						break;
 				}
+		}
+
+		int zOverrideX = -1;
+		int zOverrideY = -1;
+
+		if (block.isDuct || block == Blocks.ductBridge)
+		{
+			int rotation = -1;
+
+			if (buildPlan == null)
+			{
+				final Building build = tile.build;
+
+				if (build != null && build.team == team)
+					rotation = build.rotation;
+			}
+			else
+				rotation = buildPlan.rotation;
+
+			if (rotation != -1)
+			{
+				final Point override = CanOverridePoint(worldState, x1, y1, rotation);
+
+				zOverrideX = override.x;
+				zOverrideY = override.y;
 			}
 		}
-		
+
+		final int overrideX = zOverrideX;
+		final int overrideY = zOverrideY;
+
+		AtomicReference<Point> firstPoint = new AtomicReference<Point>();
+
 		LinkedList<BuildPlan> buildPlans = FindPath
 		(
 			(p) ->
 			{
+				firstPoint.set(p.a);
+
+				int aOverrideX = -1;
+				int aOverrideY = -1;
+
+				if (overrideX == p.a.x && overrideY == p.a.y)
+				{
+					aOverrideX = overrideX;
+					aOverrideY = overrideY;
+				}
+
 				MaskPoints(masks, true, p.a, p.b);
-				var v = pathFinder.BuildPath(p.a.x, p.a.y, p.b.x, p.b.y, NotRotate(GetRotate(x1, y1, p.a.x, p.a.y)), targetMode, _masksMap);
+				LinkedList<BuildPlan> path = pathFinder.BuildPath
+				(
+					p.a.x,
+					p.a.y,
+					p.b.x,
+					p.b.y,
+					aOverrideX,
+					aOverrideY,
+					NotRotate(GetRotate(x1, y1, p.a.x, p.a.y)),
+					targetMode,
+					_masksMap
+				);
 				MaskPoints(masks, false, p.a, p.b);
-				return v;
+				return path;
 			},
 			pair.a,
 			pair.b,
@@ -981,7 +1311,32 @@ public class Machindustry extends Mod
 		if (buildPlans == null && ignoreMask && !Expired(endTime, taskEpoch))
 			buildPlans = FindPath
 			(
-				(p) -> pathFinder.BuildPath(p.a.x, p.a.y, p.b.x, p.b.y, NotRotate(GetRotate(x1, y1, p.a.x, p.a.y)), targetMode, null),
+				(p) ->
+				{
+					firstPoint.set(p.a);
+
+					int aOverrideX = -1;
+					int aOverrideY = -1;
+
+					if (overrideX == p.a.x && overrideY == p.a.y)
+					{
+						aOverrideX = overrideX;
+						aOverrideY = overrideY;
+					}
+
+					return pathFinder.BuildPath
+					(
+						p.a.x,
+						p.a.y,
+						p.b.x,
+						p.b.y,
+						aOverrideX,
+						aOverrideY,
+						NotRotate(GetRotate(x1, y1, p.a.x, p.a.y)),
+						targetMode,
+						null
+					);
+				},
 				pair.a,
 				pair.b,
 				endTime,
@@ -990,7 +1345,8 @@ public class Machindustry extends Mod
 
 		if (buildPlans != null)
 		{
-			ReplaceSolid(worldState.BuildPlans, buildPlans, x1, y1);
+			final Point point = firstPoint.get();
+			ReplaceSolid(worldState.BuildPlans, buildPlans, point.x, point.y, x1, y1);
 			return buildPlans;
 		}
 
@@ -1480,11 +1836,11 @@ public class Machindustry extends Mod
 						case BEAM:
 							buildPlans = FindPath(_beamPathFinder, _worldState, task.x1, task.y1, task.x2, task.y2, taskEpoch);
 							break;
-					
+
 						case LIQUID:
 							buildPlans = FindPath(_liquidPathFinder, _worldState, task.x1, task.y1, task.x2, task.y2, taskEpoch);
 							break;
-					
+
 						case SOLID:
 							buildPlans = FindPath(_solidPathFinder, _worldState, task.x1, task.y1, task.x2, task.y2, taskEpoch);
 							break;
@@ -1500,7 +1856,7 @@ public class Machindustry extends Mod
 				{
 					PrintLine
 					(
-						"Exception catched when working on task" + 
+						"Exception catched when working on task" +
 						" x1 = " + task.x1 +
 						", y1 = " + task.y1 +
 						", x2 = " + task.x2 +
@@ -1590,6 +1946,7 @@ public class Machindustry extends Mod
 		if (!Core.settings.getBool(_name))
 		{
 			Core.settings.put(_name, true);
+			Tutorial();
 		}
 
 		Vars.ui.settings.getCategories().add(new SettingsCategory
@@ -1598,6 +1955,7 @@ public class Machindustry extends Mod
 			new TextureRegionDrawable(Core.atlas.find("machindustry-machindustry")),
 			_settingsBuilder
 		));
+
 		Core.scene.addListener(_inputListener);
 	}
 
