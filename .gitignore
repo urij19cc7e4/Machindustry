@@ -23,7 +23,6 @@
 /test_files/
 /annotations/build/
 /desktop-sdl/build/
-desktop-sdl/build/
 /android/assets/mindustry-maps/
 /android/assets/mindustry-saves/
 /core/assets/gifexport/
@@ -31,10 +30,9 @@ desktop-sdl/build/
 /core/assets/locales
 /ios/src/io/anuke/mindustry/gen/
 /core/src/io/anuke/mindustry/gen/
-ios/robovm.properties
-packr-out/
-config/
-*.gif
+/ios/robovm.properties
+/packr-out/
+/config/
 
 version.properties
 
