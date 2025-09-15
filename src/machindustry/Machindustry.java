@@ -22,7 +22,9 @@ import arc.scene.ui.Label;
 import arc.scene.ui.ScrollPane;
 import arc.scene.ui.layout.Table;
 import arc.struct.Queue;
+import arc.util.Http;
 import arc.util.Scaling;
+import arc.util.serialization.Jval;
 import machindustry.PathTask.PathType;
 import mindustry.Vars;
 import mindustry.content.Blocks;
@@ -49,6 +51,30 @@ import mindustry.world.meta.BlockFlag;
 
 public class Machindustry extends Mod
 {
+	// Not using enum because of Java memory model
+	// Need this to work fast
+	// Enum TileRotate
+
+	/**
+	 * →
+	*/
+	private static final int RIGHT = 0;
+
+	/**
+	 * ↑
+	*/
+	private static final int UPPER = 1;
+
+	/**
+	 * ←
+	*/
+	private static final int LEFT = 2;
+
+	/**
+	 * ↓
+	*/
+	private static final int BOTTOM = 3;
+
 	private static final Color _beamPointColor = new Color(1F, 0F, 0F, 0.5F);
 	private static final Color _liquidPointColor = new Color(0F, 1F, 0F, 0.5F);
 	private static final Color _solidPointColor = new Color(0F, 0F, 1F, 0.5F);
@@ -160,6 +186,25 @@ public class Machindustry extends Mod
 
 	private long _resultTimeAlgorithm = -1;
 	private long _resultTimeTotal = -1;
+
+	private static void CheckUpdates()
+	{
+		try
+		{
+			Http.get(Vars.ghApi + "/repos/urij19cc7e4/Machindustry/releases/latest", result ->
+			{
+				String version = Jval.read(result.getResult()).getString("tag_name").substring(1);
+
+				if (!version.equalsIgnoreCase(Vars.mods.getMod(Machindustry.class).meta.version))
+					Vars.ui.showInfo(Core.bundle.get("machindustry.update-available"));
+			});
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception catched when checking updates: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+	}
 
 	private static void DisableRouterSorter(final int x, final int y)
 	{
@@ -306,13 +351,13 @@ public class Machindustry extends Mod
 		final int buildY = build == null ? (int)tile.y : (int)build.tile.y;
 
 		if (tileX == buildX + block.sizeOffset + block.size)
-			return 0;
+			return RIGHT;
 		else if (tileY == buildY + block.sizeOffset + block.size)
-			return 1;
+			return UPPER;
 		else if (tileX == buildX + block.sizeOffset - 1)
-			return 2;
+			return LEFT;
 		else if (tileY == buildY + block.sizeOffset - 1)
-			return 3;
+			return BOTTOM;
 		else
 			return -1;
 	}
@@ -321,17 +366,17 @@ public class Machindustry extends Mod
 	{
 		switch (rotate)
 		{
-			case 0:
-				return 2;
+			case RIGHT:
+				return LEFT;
 
-			case 1:
-				return 3;
+			case UPPER:
+				return BOTTOM;
 
-			case 2:
-				return 0;
+			case LEFT:
+				return RIGHT;
 
-			case 3:
-				return 1;
+			case BOTTOM:
+				return UPPER;
 
 			default:
 				return -1;
@@ -353,33 +398,30 @@ public class Machindustry extends Mod
 		final int y
 	)
 	{
-		if (Core.settings.getBool(_liquidReplaceOneName))
+		final Team team = Vars.player.team();
+		final Tiles tiles = Vars.world.tiles;
+
+		if (team == null)
+			throw new NullPointerException("Vars.player.team is null");
+
+		if (tiles == null)
+			throw new NullPointerException("Vars.world.tiles is null");
+
+		final BuildPlan buildPlan = GetPlanIntersection(playerBuildPlans, x, y);
+
+		final Tile tile = tiles.get(x, y);
+		final Block block = buildPlan == null ? tile.block() : buildPlan.block;
+		final Building build = tile.build;
+
+		final boolean buildExist = buildPlan != null || (build != null && build.team == team);
+		final int rotation = buildPlan == null ? (build == null ? -1 : build.rotation) : buildPlan.rotation;
+
+		if (buildExist)
 		{
-			final Team team = Vars.player.team();
-			final Tiles tiles = Vars.world.tiles;
-
-			if (team == null)
-				throw new NullPointerException("Vars.player.team is null");
-
-			if (tiles == null)
-				throw new NullPointerException("Vars.world.tiles is null");
-
-			final BuildPlan buildPlan = GetPlanIntersection(playerBuildPlans, x, y);
-
-			final Tile tile = tiles.get(x, y);
-			final Block block = buildPlan == null ? tile.block() : buildPlan.block;
-			final Building build = tile.build;
-
-			final boolean buildExist = buildPlan != null || (build != null && build.team == team);
-			final int rotation = buildPlan == null ? (build == null ? -1 : build.rotation) : buildPlan.rotation;
-
-			if (buildExist)
-			{
-				if (block == Blocks.reinforcedConduit)
-					buildPlans.addLast(new BuildPlan(x, y, rotation, Blocks.reinforcedLiquidRouter));
-				else if (block == Blocks.reinforcedBridgeConduit)
-					buildPlans.addLast(new BuildPlan(x, y, GetRotate(x, y, x1, y1), Blocks.reinforcedBridgeConduit));
-			}
+			if (block == Blocks.reinforcedConduit)
+				buildPlans.addLast(new BuildPlan(x, y, rotation, Blocks.reinforcedLiquidRouter));
+			else if (block == Blocks.reinforcedBridgeConduit)
+				buildPlans.addLast(new BuildPlan(x, y, GetRotate(x, y, x1, y1), Blocks.reinforcedBridgeConduit));
 		}
 	}
 
@@ -393,57 +435,54 @@ public class Machindustry extends Mod
 		final int y
 	)
 	{
-		if (Core.settings.getBool(_solidReplaceOneName))
+		final Team team = Vars.player.team();
+		final Tiles tiles = Vars.world.tiles;
+
+		if (team == null)
+			throw new NullPointerException("Vars.player.team is null");
+
+		if (tiles == null)
+			throw new NullPointerException("Vars.world.tiles is null");
+
+		final BuildPlan buildPlan = GetPlanIntersection(playerBuildPlans, x, y);
+
+		final Tile tile = tiles.get(x, y);
+		final Block block = buildPlan == null ? tile.block() : buildPlan.block;
+		final Building build = tile.build;
+
+		final boolean buildExist = buildPlan != null || (build != null && build.team == team);
+		final int rotation = buildPlan == null ? (build == null ? -1 : build.rotation) : buildPlan.rotation;
+
+		Block replaceWithBlock;
+		switch (Core.settings.getInt(_solidReplaceWithName))
 		{
-			final Team team = Vars.player.team();
-			final Tiles tiles = Vars.world.tiles;
+			case 0:
+				replaceWithBlock = Blocks.ductRouter;
+				break;
 
-			if (team == null)
-				throw new NullPointerException("Vars.player.team is null");
+			case 1:
+				replaceWithBlock = Blocks.overflowDuct;
+				break;
 
-			if (tiles == null)
-				throw new NullPointerException("Vars.world.tiles is null");
+			case 2:
+				replaceWithBlock = Blocks.underflowDuct;
+				break;
 
-			final BuildPlan buildPlan = GetPlanIntersection(playerBuildPlans, x, y);
+			default:
+				replaceWithBlock = block;
+				break;
+		}
 
-			final Tile tile = tiles.get(x, y);
-			final Block block = buildPlan == null ? tile.block() : buildPlan.block;
-			final Building build = tile.build;
-
-			final boolean buildExist = buildPlan != null || (build != null && build.team == team);
-			final int rotation = buildPlan == null ? (build == null ? -1 : build.rotation) : buildPlan.rotation;
-
-			Block replaceWithBlock;
-			switch (Core.settings.getInt(_solidReplaceWithName))
-			{
-				case 0:
-					replaceWithBlock = Blocks.ductRouter;
-					break;
-
-				case 1:
-					replaceWithBlock = Blocks.overflowDuct;
-					break;
-
-				case 2:
-					replaceWithBlock = Blocks.underflowDuct;
-					break;
-
-				default:
-					replaceWithBlock = block;
-					break;
-			}
-
-			if (buildExist)
-			{
-				if (buildExist && (block == Blocks.duct || block == Blocks.armoredDuct))
-					buildPlans.addLast(new BuildPlan(x, y, rotation, replaceWithBlock));
-				else if (block == Blocks.ductBridge)
-					buildPlans.addLast(new BuildPlan(x, y, GetRotate(x, y, x1, y1), Blocks.ductBridge));
-			}
-
+		if (buildExist)
+		{
 			if (buildExist && (block == Blocks.duct || block == Blocks.armoredDuct))
 				buildPlans.addLast(new BuildPlan(x, y, rotation, replaceWithBlock));
+			else if (block == Blocks.ductBridge)
+				buildPlans.addLast(new BuildPlan(x, y, GetRotate(x, y, x1, y1), Blocks.ductBridge));
 		}
+
+		if (buildExist && (block == Blocks.duct || block == Blocks.armoredDuct))
+			buildPlans.addLast(new BuildPlan(x, y, rotation, replaceWithBlock));
 	}
 
 	private static void SortPoints(final ArrayList<Point> edgePoints, final Point a, final Point b)
@@ -479,7 +518,7 @@ public class Machindustry extends Mod
 		final BaseDialog baseDialog = new BaseDialog(Core.bundle.get("machindustry.welcome-title"));
 		final Table table = new Table();
 
-		table.labelWrap(Core.bundle.get("machindustry.welcome-text")).maxWidth(Core.scene.getWidth() * 0.5F).fillX().padTop(padI).get().setAlignment(1);
+		table.labelWrap(Core.bundle.get("machindustry.welcome-text")).maxWidth(Core.scene.getWidth() * 0.5F).fillX().get().setAlignment(1);
 		table.row();
 
 		table.image(new TextureRegionDrawable(Core.atlas.find("machindustry-01-turbine-stage-1"))).maxWidth(width).scaling(scaling).padTop(padI).get().setWidth(width);
@@ -663,12 +702,11 @@ public class Machindustry extends Mod
 
 		machindustrySettingsTable.pref(invisibleSpace);
 		machindustrySettingsTable.checkPref(_solidTargetModeName, true);
-		machindustrySettingsTable.checkPref(_solidDisableSorterName, true);
+		machindustrySettingsTable.checkPref(_solidDisableSorterName, false);
 		machindustrySettingsTable.checkPref(_solidReplaceOneName, true);
 		machindustrySettingsTable.sliderPref(_solidReplaceWithName, 0, 0, 2, 1, v -> Core.bundle.get("machindustry.solid-replace-with-" + GetReplacerSolidName(v)));
 
 		machindustrySettingsTable.pref(visibleSpace);
-
 		mindustrySettingsTable.add(machindustrySettingsTable);
 	}
 
@@ -688,22 +726,22 @@ public class Machindustry extends Mod
 
 		switch (r)
 		{
-			case 0:
+			case RIGHT:
 				overrideX = x + 1;
 				overrideY = y;
 				break;
 
-			case 1:
+			case UPPER:
 				overrideX = x;
 				overrideY = y + 1;
 				break;
 
-			case 2:
+			case LEFT:
 				overrideX = x - 1;
 				overrideY = y;
 				break;
 
-			case 3:
+			case BOTTOM:
 				overrideX = x;
 				overrideY = y - 1;
 				break;
@@ -996,6 +1034,58 @@ public class Machindustry extends Mod
 		if (Expired(endTime, taskEpoch))
 			return null;
 
+		final BuildPlan buildPlan2 = GetPlanIntersection(worldState.BuildPlans, x2, y2);
+
+		final Tile tile2 = tiles.get(x2, y2);
+		final Block block2 = buildPlan2 == null ? tile2.block() : buildPlan2.block;
+
+		if (block2 == Blocks.reinforcedConduit || block2 == Blocks.reinforcedBridgeConduit)
+		{
+			final boolean[] wsMap = worldState.Map;
+			final int i2 = x2 + y2 * _width;
+
+			int rotation = -1;
+
+			if (buildPlan2 == null)
+			{
+				final Building build = tile2.build;
+
+				if (build != null && build.team == team)
+					rotation = build.rotation;
+			}
+			else
+				rotation = buildPlan2.rotation;
+
+			switch (rotation)
+			{
+				case RIGHT:
+					if (x2 + 1 < _width)
+						wsMap[i2 + 1] = true;
+					break;
+
+				case UPPER:
+					if (y2 + 1 < _height)
+						wsMap[i2 + _width] = true;
+					break;
+
+				case LEFT:
+					if (x2 > 0)
+						wsMap[i2 - 1] = true;
+					break;
+
+				case BOTTOM:
+					if (y2 > 0)
+						wsMap[i2 - _width] = true;
+					break;
+
+				default:
+					break;
+			}
+		}
+
+		if (Expired(endTime, taskEpoch))
+			return null;
+
 		FillMasksMap
 		(
 			worldState.Map,
@@ -1021,27 +1111,74 @@ public class Machindustry extends Mod
 		final Pair<ArrayList<Point>, ArrayList<Point>> pair = GetPoints(worldState.Map, x1, y1, x2, y2);
 		final boolean[] masks = new boolean[5];
 
-		final BuildPlan buildPlan = GetPlanIntersection(worldState.BuildPlans, x1, y1);
+		final BuildPlan buildPlan1 = GetPlanIntersection(worldState.BuildPlans, x1, y1);
 
-		final Tile tile = tiles.get(x1, y1);
-		final Block block = buildPlan == null ? tile.block() : buildPlan.block;
+		final Tile tile1 = tiles.get(x1, y1);
+		final Block block1 = buildPlan1 == null ? tile1.block() : buildPlan1.block;
 
-		int zOverrideX = -1;
-		int zOverrideY = -1;
+		final boolean replace = Core.settings.getBool(_liquidReplaceOneName);
 
-		if (block.isDuct || block == Blocks.ductBridge)
+		if ((block1 == Blocks.reinforcedConduit && !replace) || block1 == Blocks.reinforcedBridgeConduit)
 		{
 			int rotation = -1;
 
-			if (buildPlan == null)
+			if (buildPlan1 == null)
 			{
-				final Building build = tile.build;
+				final Building build = tile1.build;
 
 				if (build != null && build.team == team)
 					rotation = build.rotation;
 			}
 			else
-				rotation = buildPlan.rotation;
+				rotation = buildPlan1.rotation;
+
+			switch (rotation)
+			{
+				case RIGHT:
+					pair.a.removeIf(point -> (point.x == x1 && point.y == y1 + 1));
+					pair.a.removeIf(point -> (point.x == x1 - 1 && point.y == y1));
+					pair.a.removeIf(point -> (point.x == x1 && point.y == y1 - 1));
+					break;
+
+				case UPPER:
+					pair.a.removeIf(point -> (point.x == x1 + 1 && point.y == y1));
+					pair.a.removeIf(point -> (point.x == x1 - 1 && point.y == y1));
+					pair.a.removeIf(point -> (point.x == x1 && point.y == y1 - 1));
+					break;
+
+				case LEFT:
+					pair.a.removeIf(point -> (point.x == x1 + 1 && point.y == y1));
+					pair.a.removeIf(point -> (point.x == x1 && point.y == y1 + 1));
+					pair.a.removeIf(point -> (point.x == x1 && point.y == y1 - 1));
+					break;
+
+				case BOTTOM:
+					pair.a.removeIf(point -> (point.x == x1 + 1 && point.y == y1));
+					pair.a.removeIf(point -> (point.x == x1 && point.y == y1 + 1));
+					pair.a.removeIf(point -> (point.x == x1 - 1 && point.y == y1));
+					break;
+
+				default:
+					break;
+			}
+		}
+
+		int zOverrideX = -1;
+		int zOverrideY = -1;
+
+		if (block1 == Blocks.reinforcedConduit || block1 == Blocks.reinforcedBridgeConduit)
+		{
+			int rotation = -1;
+
+			if (buildPlan1 == null)
+			{
+				final Building build = tile1.build;
+
+				if (build != null && build.team == team)
+					rotation = build.rotation;
+			}
+			else
+				rotation = buildPlan1.rotation;
 
 			if (rotation != -1)
 			{
@@ -1055,7 +1192,7 @@ public class Machindustry extends Mod
 		final int overrideX = zOverrideX;
 		final int overrideY = zOverrideY;
 
-		AtomicReference<Point> firstPoint = new AtomicReference<Point>();
+		final AtomicReference<Point> firstPoint = new AtomicReference<Point>();
 
 		LinkedList<BuildPlan> buildPlans = FindPath
 		(
@@ -1132,7 +1269,10 @@ public class Machindustry extends Mod
 		if (buildPlans != null)
 		{
 			final Point point = firstPoint.get();
-			ReplaceLiquid(worldState.BuildPlans, buildPlans, point.x, point.y, x1, y1);
+
+			if (replace)
+				ReplaceLiquid(worldState.BuildPlans, buildPlans, point.x, point.y, x1, y1);
+
 			return buildPlans;
 		}
 
@@ -1169,6 +1309,116 @@ public class Machindustry extends Mod
 		if (Expired(endTime, taskEpoch))
 			return null;
 
+		final BuildPlan buildPlan2 = GetPlanIntersection(worldState.BuildPlans, x2, y2);
+
+		final Tile tile2 = tiles.get(x2, y2);
+		final Block block2 = buildPlan2 == null ? tile2.block() : buildPlan2.block;
+
+		final boolean isDuct2 = block2.isDuct || block2 == Blocks.surgeConveyor || block2 == Blocks.ductBridge;
+		final boolean isRouter2 = block2 == Blocks.surgeRouter || block2 == Blocks.ductRouter
+			|| block2 == Blocks.overflowDuct || block2 == Blocks.underflowDuct || block2 == Blocks.ductUnloader;
+
+		if (isDuct2 || isRouter2)
+		{
+			final boolean[] wsMap = worldState.Map;
+			final int i2 = x2 + y2 * _width;
+
+			final boolean right = x2 + 1 < _width;
+			final boolean upper = y2 + 1 < _height;
+			final boolean left = x2 > 0;
+			final boolean bottom = y2 > 0;
+
+			final int i2_right = i2 + 1;
+			final int i2_upper = i2 + _width;
+			final int i2_left = i2 - 1;
+			final int i2_bottom = i2 - _width;
+
+			int rotation = -1;
+
+			if (buildPlan2 == null)
+			{
+				final Building build = tile2.build;
+
+				if (build != null && build.team == team)
+					rotation = build.rotation;
+			}
+			else
+				rotation = buildPlan2.rotation;
+
+			if (isDuct2)
+				switch (rotation)
+				{
+					case RIGHT:
+						if (right)
+							wsMap[i2_right] = true;
+						break;
+
+					case UPPER:
+						if (upper)
+							wsMap[i2_upper] = true;
+						break;
+
+					case LEFT:
+						if (left)
+							wsMap[i2_left] = true;
+						break;
+
+					case BOTTOM:
+						if (bottom)
+							wsMap[i2_bottom] = true;
+						break;
+
+					default:
+						break;
+				}
+
+			if (isRouter2)
+				switch (rotation)
+				{
+					case RIGHT:
+						if (right)
+							wsMap[i2_right] = true;
+						if (upper)
+							wsMap[i2_upper] = true;
+						if (bottom)
+							wsMap[i2_bottom] = true;
+						break;
+
+					case UPPER:
+						if (right)
+							wsMap[i2_right] = true;
+						if (upper)
+							wsMap[i2_upper] = true;
+						if (left)
+							wsMap[i2_left] = true;
+						break;
+
+					case LEFT:
+						if (upper)
+							wsMap[i2_upper] = true;
+						if (left)
+							wsMap[i2_left] = true;
+						if (bottom)
+							wsMap[i2_bottom] = true;
+						break;
+
+					case BOTTOM:
+						if (right)
+							wsMap[i2_right] = true;
+						if (left)
+							wsMap[i2_left] = true;
+						if (bottom)
+							wsMap[i2_bottom] = true;
+						break;
+
+					default:
+						break;
+				}
+		}
+
+		if (Expired(endTime, taskEpoch))
+			return null;
+
 		FillMasksMap
 		(
 			worldState.Map,
@@ -1194,19 +1444,26 @@ public class Machindustry extends Mod
 		final Pair<ArrayList<Point>, ArrayList<Point>> pair = GetPoints(worldState.Map, x1, y1, x2, y2);
 		final boolean[] masks = new boolean[5];
 
-		final BuildPlan buildPlan = GetPlanIntersection(worldState.BuildPlans, x1, y1);
+		final BuildPlan buildPlan1 = GetPlanIntersection(worldState.BuildPlans, x1, y1);
 
-		final Tile tile = tiles.get(x1, y1);
-		final Block block = buildPlan == null ? tile.block() : buildPlan.block;
+		final Tile tile1 = tiles.get(x1, y1);
+		final Block block1 = buildPlan1 == null ? tile1.block() : buildPlan1.block;
 
-		if ((!Core.settings.getBool(_solidDisableSorterName) && block == Blocks.ductRouter) || block == Blocks.ductUnloader)
+		final boolean replace = Core.settings.getBool(_solidReplaceOneName);
+
+		final boolean isDuct1 = (block1.isDuct && !replace) || block1 == Blocks.surgeConveyor
+			|| block1 == Blocks.ductBridge || block1 == Blocks.ductUnloader;
+		final boolean isRouter1 = (block1.isDuct && replace) || block1 == Blocks.surgeRouter
+			|| block1 == Blocks.ductRouter || block1 == Blocks.overflowDuct || block1 == Blocks.underflowDuct;
+
+		if (isDuct1 || isRouter1)
 		{
 			Object config = null;
 			int rotation = -1;
 
-			if (buildPlan == null)
+			if (buildPlan1 == null)
 			{
-				final Building build = tile.build;
+				final Building build = tile1.build;
 
 				if (build != null && build.team == team)
 				{
@@ -1216,23 +1473,60 @@ public class Machindustry extends Mod
 			}
 			else
 			{
-				config = buildPlan.config;
-				rotation = buildPlan.rotation;
+				config = buildPlan1.config;
+				rotation = buildPlan1.rotation;
 			}
 
-			if (config != null || block == Blocks.ductUnloader)
+			final boolean isSorter1 = !Core.settings.getBool(_solidDisableSorterName) && block1 == Blocks.ductRouter && config != null;
+
+			if (isDuct1 || isSorter1)
 				switch (rotation)
 				{
-					case 0:
-					case 2:
+					case RIGHT:
+						pair.a.removeIf(point -> (point.x == x1 && point.y == y1 + 1));
+						pair.a.removeIf(point -> (point.x == x1 - 1 && point.y == y1));
+						pair.a.removeIf(point -> (point.x == x1 && point.y == y1 - 1));
+						break;
+
+					case UPPER:
+						pair.a.removeIf(point -> (point.x == x1 + 1 && point.y == y1));
+						pair.a.removeIf(point -> (point.x == x1 - 1 && point.y == y1));
+						pair.a.removeIf(point -> (point.x == x1 && point.y == y1 - 1));
+						break;
+
+					case LEFT:
+						pair.a.removeIf(point -> (point.x == x1 + 1 && point.y == y1));
 						pair.a.removeIf(point -> (point.x == x1 && point.y == y1 + 1));
 						pair.a.removeIf(point -> (point.x == x1 && point.y == y1 - 1));
 						break;
 
-					case 1:
-					case 3:
+					case BOTTOM:
 						pair.a.removeIf(point -> (point.x == x1 + 1 && point.y == y1));
+						pair.a.removeIf(point -> (point.x == x1 && point.y == y1 + 1));
 						pair.a.removeIf(point -> (point.x == x1 - 1 && point.y == y1));
+						break;
+
+					default:
+						break;
+				}
+
+			if (isRouter1 && !isSorter1)
+				switch (rotation)
+				{
+					case RIGHT:
+						pair.a.removeIf(point -> (point.x == x1 - 1 && point.y == y1));
+						break;
+
+					case UPPER:
+						pair.a.removeIf(point -> (point.x == x1 && point.y == y1 - 1));
+						break;
+
+					case LEFT:
+						pair.a.removeIf(point -> (point.x == x1 + 1 && point.y == y1));
+						break;
+
+					case BOTTOM:
+						pair.a.removeIf(point -> (point.x == x1 && point.y == y1 + 1));
 						break;
 
 					default:
@@ -1243,19 +1537,19 @@ public class Machindustry extends Mod
 		int zOverrideX = -1;
 		int zOverrideY = -1;
 
-		if (block.isDuct || block == Blocks.ductBridge)
+		if (block1.isDuct || block1 == Blocks.ductBridge)
 		{
 			int rotation = -1;
 
-			if (buildPlan == null)
+			if (buildPlan1 == null)
 			{
-				final Building build = tile.build;
+				final Building build = tile1.build;
 
 				if (build != null && build.team == team)
 					rotation = build.rotation;
 			}
 			else
-				rotation = buildPlan.rotation;
+				rotation = buildPlan1.rotation;
 
 			if (rotation != -1)
 			{
@@ -1269,7 +1563,7 @@ public class Machindustry extends Mod
 		final int overrideX = zOverrideX;
 		final int overrideY = zOverrideY;
 
-		AtomicReference<Point> firstPoint = new AtomicReference<Point>();
+		final AtomicReference<Point> firstPoint = new AtomicReference<Point>();
 
 		LinkedList<BuildPlan> buildPlans = FindPath
 		(
@@ -1346,7 +1640,10 @@ public class Machindustry extends Mod
 		if (buildPlans != null)
 		{
 			final Point point = firstPoint.get();
-			ReplaceSolid(worldState.BuildPlans, buildPlans, point.x, point.y, x1, y1);
+
+			if (replace)
+				ReplaceSolid(worldState.BuildPlans, buildPlans, point.x, point.y, x1, y1);
+
 			return buildPlans;
 		}
 
@@ -1957,6 +2254,7 @@ public class Machindustry extends Mod
 		));
 
 		Core.scene.addListener(_inputListener);
+		CheckUpdates();
 	}
 
 	private class MachindustryInputListener extends InputListener

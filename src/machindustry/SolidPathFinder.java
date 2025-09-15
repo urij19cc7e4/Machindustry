@@ -2268,6 +2268,59 @@ public class SolidPathFinder
 			}
 		}
 
+		final ListIterator<BuildPlan> iterator1 = buildPath.listIterator();
+		final ListIterator<BuildPlan> iterator2 = buildPath.listIterator();
+
+		// Bridges order reversing so it is safer to build
+		while (iterator1.hasNext())
+		{
+			buildPlan1 = iterator1.next();
+			buildPlan2 = iterator2.next();
+
+			if (buildPlan1.block == Blocks.ductBridge)
+			{
+				int count = 1;
+
+				while (iterator2.hasNext())
+				{
+					buildPlan2 = iterator2.next();
+
+					if (buildPlan2.block != Blocks.ductBridge)
+					{
+						buildPlan2 = iterator2.previous();
+						break;
+					}
+
+					++count;
+				}
+
+				buildPlan2 = iterator2.previous();
+
+				final int moves = 2 - count % 2;
+				count /= 2;
+
+				for (int i = 0; i < count; ++i)
+				{
+					iterator1.set(buildPlan2);
+					iterator2.set(buildPlan1);
+
+					buildPlan1 = iterator1.next();
+					buildPlan2 = iterator2.previous();
+				}
+
+				--count;
+
+				for (int i = 0; i < count; ++i)
+				{
+					iterator1.next();
+					iterator2.next();
+				}
+
+				for (int i = 0; i < moves; ++i)
+					iterator2.next();
+			}
+		}
+
 		return buildPath;
 	}
 
