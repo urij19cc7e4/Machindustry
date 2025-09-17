@@ -2102,7 +2102,7 @@ public class SolidPathFinder
 				rr = BOTTOM;
 			}
 
-			if (ii != -1 && s1 == 1 && s0 == 1)
+			if (ii != -1 && s1 == 1 && s0 == 1 && pathNodes1.get(ii).s == 1 && (ii == 0 || pathNodes1.get(ii - 1).s == 1))
 			{
 				pathNode.r = rr;
 				i = ii - 1;

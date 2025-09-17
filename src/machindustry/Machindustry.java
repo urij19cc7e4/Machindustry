@@ -51,28 +51,9 @@ import mindustry.world.meta.BlockFlag;
 
 public class Machindustry extends Mod
 {
-	// Not using enum because of Java memory model
-	// Need this to work fast
-	// Enum TileRotate
-
-	/**
-	 * →
-	*/
 	private static final int RIGHT = 0;
-
-	/**
-	 * ↑
-	*/
 	private static final int UPPER = 1;
-
-	/**
-	 * ←
-	*/
 	private static final int LEFT = 2;
-
-	/**
-	 * ↓
-	*/
 	private static final int BOTTOM = 3;
 
 	private static final Color _beamPointColor = new Color(1F, 0F, 0F, 0.5F);
@@ -140,8 +121,9 @@ public class Machindustry extends Mod
 	private String _failureMessage = "FAILURE";
 	private String _successMessage = "SUCCESS";
 
-	private String _millisecondMessage1 = " MS; ";
-	private String _millisecondMessage2 = " MS }";
+	private String _resultMessage1 = null;
+	private String _resultMessage2 = null;
+	private String _resultMessage3 = null;
 
 	/**
 	 * Used to stop worker thread
@@ -193,9 +175,8 @@ public class Machindustry extends Mod
 		{
 			Http.get(Vars.ghApi + "/repos/urij19cc7e4/Machindustry/releases/latest", result ->
 			{
-				String version = Jval.read(result.getResult()).getString("tag_name").substring(1);
-
-				if (!version.equalsIgnoreCase(Vars.mods.getMod(Machindustry.class).meta.version))
+				if (!Jval.read(result.getResult()).getString("tag_name").replaceAll("[^0-9.]", "").equalsIgnoreCase
+					(Vars.mods.getMod(Machindustry.class).meta.version.replaceAll("[^0-9.]", "")))
 					Vars.ui.showInfo(Core.bundle.get("machindustry.update-available"));
 			});
 		}
@@ -413,16 +394,10 @@ public class Machindustry extends Mod
 		final Block block = buildPlan == null ? tile.block() : buildPlan.block;
 		final Building build = tile.build;
 
-		final boolean buildExist = buildPlan != null || (build != null && build.team == team);
 		final int rotation = buildPlan == null ? (build == null ? -1 : build.rotation) : buildPlan.rotation;
 
-		if (buildExist)
-		{
-			if (block == Blocks.reinforcedConduit)
-				buildPlans.addLast(new BuildPlan(x, y, rotation, Blocks.reinforcedLiquidRouter));
-			else if (block == Blocks.reinforcedBridgeConduit)
-				buildPlans.addLast(new BuildPlan(x, y, GetRotate(x, y, x1, y1), Blocks.reinforcedBridgeConduit));
-		}
+		if ((buildPlan != null || (build != null && build.team == team)) && block == Blocks.reinforcedConduit)
+			buildPlans.addLast(new BuildPlan(x, y, rotation, Blocks.reinforcedLiquidRouter));
 	}
 
 	private static void ReplaceSolid
@@ -450,7 +425,6 @@ public class Machindustry extends Mod
 		final Block block = buildPlan == null ? tile.block() : buildPlan.block;
 		final Building build = tile.build;
 
-		final boolean buildExist = buildPlan != null || (build != null && build.team == team);
 		final int rotation = buildPlan == null ? (build == null ? -1 : build.rotation) : buildPlan.rotation;
 
 		Block replaceWithBlock;
@@ -473,15 +447,7 @@ public class Machindustry extends Mod
 				break;
 		}
 
-		if (buildExist)
-		{
-			if (buildExist && (block == Blocks.duct || block == Blocks.armoredDuct))
-				buildPlans.addLast(new BuildPlan(x, y, rotation, replaceWithBlock));
-			else if (block == Blocks.ductBridge)
-				buildPlans.addLast(new BuildPlan(x, y, GetRotate(x, y, x1, y1), Blocks.ductBridge));
-		}
-
-		if (buildExist && (block == Blocks.duct || block == Blocks.armoredDuct))
+		if ((buildPlan != null || (build != null && build.team == team)) && block.isDuct)
 			buildPlans.addLast(new BuildPlan(x, y, rotation, replaceWithBlock));
 	}
 
@@ -2068,7 +2034,22 @@ public class Machindustry extends Mod
 
 	private void ShowResultRunnable()
 	{
-		String time = " { ";
+		if (_resultFailure)
+		{
+			_resultFailure = false;
+			Vars.ui.showInfoToast(_failureMessage + ShowResultTime(), 1F);
+		}
+
+		if (_resultSuccess)
+		{
+			_resultSuccess = false;
+			Vars.ui.showInfoToast(_successMessage + ShowResultTime(), 1F);
+		}
+	}
+
+	private String ShowResultTime()
+	{
+		String time = _resultMessage1;
 
 		if (_resultTimeAlgorithm == -1)
 			time += "-";
@@ -2078,7 +2059,7 @@ public class Machindustry extends Mod
 			_resultTimeAlgorithm = -1;
 		}
 
-		time += _millisecondMessage1;
+		time += _resultMessage2;
 
 		if (_resultTimeTotal == -1)
 			time += "-";
@@ -2088,19 +2069,9 @@ public class Machindustry extends Mod
 			_resultTimeTotal = -1;
 		}
 
-		time += _millisecondMessage2;
+		time += _resultMessage3;
 
-		if (_resultFailure)
-		{
-			_resultFailure = false;
-			Vars.ui.showInfoToast(_failureMessage + time, 1F);
-		}
-
-		if (_resultSuccess)
-		{
-			_resultSuccess = false;
-			Vars.ui.showInfoToast(_successMessage + time, 1F);
-		}
+		return time;
 	}
 
 	private void TaskWorker()
@@ -2237,8 +2208,9 @@ public class Machindustry extends Mod
 		_failureMessage = Core.bundle.get("machindustry.failure-message");
 		_successMessage = Core.bundle.get("machindustry.success-message");
 
-		_millisecondMessage1 = " " + Core.bundle.get("machindustry.ms") + "; ";
-		_millisecondMessage2 = " " + Core.bundle.get("machindustry.ms") + " }";
+		_resultMessage1 = " [[";
+		_resultMessage2 = " " + Core.bundle.get("machindustry.ms") + "; ";
+		_resultMessage3 = " " + Core.bundle.get("machindustry.ms") + "]";
 
 		if (!Core.settings.getBool(_name))
 		{
