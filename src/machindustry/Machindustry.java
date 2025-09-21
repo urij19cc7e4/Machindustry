@@ -447,7 +447,7 @@ public class Machindustry extends Mod
 				break;
 		}
 
-		if ((buildPlan != null || (build != null && build.team == team)) && block.isDuct)
+		if ((buildPlan != null || (build != null && build.team == team)) && (block == Blocks.armoredDuct || block == Blocks.duct))
 			buildPlans.addLast(new BuildPlan(x, y, rotation, replaceWithBlock));
 	}
 
@@ -1280,7 +1280,7 @@ public class Machindustry extends Mod
 		final Tile tile2 = tiles.get(x2, y2);
 		final Block block2 = buildPlan2 == null ? tile2.block() : buildPlan2.block;
 
-		final boolean isDuct2 = block2.isDuct || block2 == Blocks.surgeConveyor || block2 == Blocks.ductBridge;
+		final boolean isDuct2 = block2.isDuct || block2 == Blocks.surgeConveyor;
 		final boolean isRouter2 = block2 == Blocks.surgeRouter || block2 == Blocks.ductRouter
 			|| block2 == Blocks.overflowDuct || block2 == Blocks.underflowDuct || block2 == Blocks.ductUnloader;
 
@@ -1417,9 +1417,9 @@ public class Machindustry extends Mod
 
 		final boolean replace = Core.settings.getBool(_solidReplaceOneName);
 
-		final boolean isDuct1 = (block1.isDuct && !replace) || block1 == Blocks.surgeConveyor
+		final boolean isDuct1 = ((block1 == Blocks.armoredDuct || block1 == Blocks.duct) && !replace) || block1 == Blocks.surgeConveyor
 			|| block1 == Blocks.ductBridge || block1 == Blocks.ductUnloader;
-		final boolean isRouter1 = (block1.isDuct && replace) || block1 == Blocks.surgeRouter
+		final boolean isRouter1 = ((block1 == Blocks.armoredDuct || block1 == Blocks.duct) && replace) || block1 == Blocks.surgeRouter
 			|| block1 == Blocks.ductRouter || block1 == Blocks.overflowDuct || block1 == Blocks.underflowDuct;
 
 		if (isDuct1 || isRouter1)
@@ -1503,7 +1503,7 @@ public class Machindustry extends Mod
 		int zOverrideX = -1;
 		int zOverrideY = -1;
 
-		if (block1.isDuct || block1 == Blocks.ductBridge)
+		if (block1.isDuct)
 		{
 			int rotation = -1;
 
