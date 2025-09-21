@@ -60,11 +60,18 @@ public class Machindustry extends Mod
 	private static final Color _liquidPointColor = new Color(0F, 1F, 0F, 0.5F);
 	private static final Color _solidPointColor = new Color(0F, 0F, 1F, 0.5F);
 	private static final Color _turbinePointColor = new Color(1F, 1F, 1F, 1F);
+	private static final Color _takeToTheTopPointColor = new Color(0F, 1F, 1F, 1F);
 
 	private static final String _name = "machindustry";
 
 	private static final String _polygonSafeZoneName = "polygon-safe-zone";
 	private static final String _radiusSafeZoneName = "radius-safe-zone";
+
+	private static final String _buildAtmosphericConcentrator = "build-atmospheric-concentrator";
+	private static final String _buildBeamNode = "build-beam-node";
+	private static final String _buildBuildTower = "build-build-tower";
+	private static final String _buildElectricHeater = "build-electric-heater";
+	private static final String _buildLiquidTransport = "build-liquid-transport";
 
 	private static final String _beamFrequencyName = "beam-time-check-frequency";
 	private static final String _beamBuildTimeName = "beam-time-to-build-path";
@@ -112,14 +119,14 @@ public class Machindustry extends Mod
 	private final Cons<DisposeEvent> _gameExitEventCons = e -> MachindustryDispose();
 	private final Cons<WorldLoadEvent> _worldLoadEventCons = e -> MachindustryUpdate();
 
-	private final Runnable _showResultRunnable = () -> ShowResultRunnable();
 	private final Runnable _worldUpdateRunnable = () -> WorldUpdateRunnable();
+	private final Runnable _worldDrawRunnable = () -> WorldDrawRunnable();
 
 	private final TaskQueue _taskQueue = new TaskQueue();
 	private final Thread _thread;
 
-	private String _failureMessage = "FAILURE";
-	private String _successMessage = "SUCCESS";
+	private String _failureMessage = null;
+	private String _successMessage = null;
 
 	private String _resultMessage1 = null;
 	private String _resultMessage2 = null;
@@ -141,6 +148,7 @@ public class Machindustry extends Mod
 	private KeyCode _liquidPathFinderCode = KeyCode.u;
 	private KeyCode _solidPathFinderCode = KeyCode.y;
 	private KeyCode _turbineBuilderCode = KeyCode.o;
+	private KeyCode _takeToTheTopCode = KeyCode.k;
 
 	private int _height = -1;
 	private int _width = -1;
@@ -157,11 +165,13 @@ public class Machindustry extends Mod
 	private Point _liquidFirstPoint = null;
 	private Point _solidFirstPoint = null;
 	private Point _turbineFirstPoint = null;
+	private Point _takeToTheTopFirstPoint = null;
 
 	private Point _beamLastPoint = null;
 	private Point _liquidLastPoint = null;
 	private Point _solidLastPoint = null;
 	private Point _turbineLastPoint = null;
+	private Point _takeToTheTopLastPoint = null;
 
 	private boolean _resultFailure = false;
 	private boolean _resultSuccess = false;
@@ -592,6 +602,23 @@ public class Machindustry extends Mod
 			KeyCode code = Arrays.stream(KeyCode.values()).filter(k -> k.value.equalsIgnoreCase(v)).findFirst().orElse(null);
 			Core.settings.put("turbine-key", code == null ? _turbineBuilderCode.name().toUpperCase() : code.name().toUpperCase());
 		});
+
+		machindustrySettingsTable.pref(visibleSpace);
+		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.build-title")));
+
+		machindustrySettingsTable.pref(invisibleSpace);
+		machindustrySettingsTable.textPref("build-key", _takeToTheTopCode.name().toUpperCase(), v ->
+		{
+			KeyCode code = Arrays.stream(KeyCode.values()).filter(k -> k.value.equalsIgnoreCase(v)).findFirst().orElse(null);
+			Core.settings.put("build-key", code == null ? _takeToTheTopCode.name().toUpperCase() : code.name().toUpperCase());
+		});
+
+		machindustrySettingsTable.pref(invisibleSpace);
+		machindustrySettingsTable.checkPref(_buildAtmosphericConcentrator, false);
+		machindustrySettingsTable.checkPref(_buildBeamNode, false);
+		machindustrySettingsTable.checkPref(_buildBuildTower, false);
+		machindustrySettingsTable.checkPref(_buildElectricHeater, false);
+		machindustrySettingsTable.checkPref(_buildLiquidTransport, false);
 
 		machindustrySettingsTable.pref(visibleSpace);
 		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.beam-title")));
@@ -1946,7 +1973,7 @@ public class Machindustry extends Mod
 			_width,
 			Core.settings.getBool(_polygonSafeZoneName),
 			(float)Core.settings.getInt(_radiusSafeZoneName),
-			_showResultRunnable,
+			_worldUpdateRunnable,
 			null
 		);
 
@@ -2032,21 +2059,6 @@ public class Machindustry extends Mod
 		}
 	}
 
-	private void ShowResultRunnable()
-	{
-		if (_resultFailure)
-		{
-			_resultFailure = false;
-			Vars.ui.showInfoToast(_failureMessage + ShowResultTime(), 1F);
-		}
-
-		if (_resultSuccess)
-		{
-			_resultSuccess = false;
-			Vars.ui.showInfoToast(_successMessage + ShowResultTime(), 1F);
-		}
-	}
-
 	private String ShowResultTime()
 	{
 		String time = _resultMessage1;
@@ -2072,6 +2084,86 @@ public class Machindustry extends Mod
 		time += _resultMessage3;
 
 		return time;
+	}
+
+	private void TakeToTheTop(final boolean topAC, final boolean topBN, final boolean topBT, final boolean topEH, final boolean topLT)
+	{
+		if (topAC || topBN || topBT || topEH || topLT)
+		{
+			boolean buildTowerExist = false;
+
+			final Queue<BuildPlan> queue = Vars.player.unit().plans;
+			final Queue<BuildPlan> topOrderedQueue = new Queue<BuildPlan>(queue.size);
+			final Queue<BuildPlan> bottomOrderedQueue = new Queue<BuildPlan>(queue.size);
+
+			for (BuildPlan buildPlan : queue)
+				if (!buildPlan.breaking && buildPlan.block == Blocks.buildTower)
+				{
+					buildTowerExist = true;
+					break;
+				}
+
+			if (buildTowerExist)
+			{
+				for (final BuildPlan buildPlan : queue)
+				{
+					final Block block = buildPlan.block;
+
+					if (!buildPlan.breaking
+						&& ((block == Blocks.atmosphericConcentrator && topAC)
+						|| (block == Blocks.beamNode && topBN)
+						|| (block == Blocks.buildTower && topBT)
+						|| (block == Blocks.electricHeater && topEH)
+						|| (block instanceof LiquidBlock && topLT)))
+						topOrderedQueue.addLast(buildPlan);
+					else
+						bottomOrderedQueue.addLast(buildPlan);
+				}
+
+				queue.clear();
+
+				for (final BuildPlan buildPlan : topOrderedQueue)
+					queue.addLast(buildPlan);
+
+				for (final BuildPlan buildPlan : bottomOrderedQueue)
+					queue.addLast(buildPlan);
+			}
+		}
+	}
+
+	private void TakeToTheTop(final int x1, final int y1, final int x2, final int y2)
+	{
+		final int xMax = Math.max(x1, x2);
+		final int xMin = Math.min(x1, x2);
+		final int yMax = Math.max(y1, y2);
+		final int yMin = Math.min(y1, y2);
+
+		final Queue<BuildPlan> queue = Vars.player.unit().plans;
+		final Queue<BuildPlan> topOrderedQueue = new Queue<BuildPlan>(queue.size);
+		final Queue<BuildPlan> bottomOrderedQueue = new Queue<BuildPlan>(queue.size);
+
+		for (final BuildPlan buildPlan : queue)
+		{
+			final Block block = buildPlan.block;
+
+			final int blockXMax = buildPlan.x + block.size + block.sizeOffset;
+			final int blockXMin = buildPlan.x + block.sizeOffset;
+			final int blockYMax = buildPlan.y + block.size + block.sizeOffset;
+			final int blockYMin = buildPlan.y + block.sizeOffset;
+
+			if (!buildPlan.breaking && blockXMax <= xMax && blockXMin >= xMin && blockYMax <= yMax && blockYMin >= yMin)
+				topOrderedQueue.addLast(buildPlan);
+			else
+				bottomOrderedQueue.addLast(buildPlan);
+		}
+
+		queue.clear();
+
+		for (final BuildPlan buildPlan : topOrderedQueue)
+			queue.addLast(buildPlan);
+
+		for (final BuildPlan buildPlan : bottomOrderedQueue)
+			queue.addLast(buildPlan);
 	}
 
 	private void TaskWorker()
@@ -2158,14 +2250,31 @@ public class Machindustry extends Mod
 		}
 	}
 
-	private void WorldUpdateRunnable()
+	private void WorldDrawRunnable()
 	{
 		if (DoHandle())
 		{
 			Point currentPoint = GetCurrentPoint();
 
 			if (_turbineFirstPoint != null)
-				DrawRectangleOverlay(_turbineFirstPoint.x, _turbineFirstPoint.y, currentPoint.x, currentPoint.y, _turbinePointColor);
+				DrawRectangleOverlay
+				(
+					_turbineFirstPoint.x,
+					_turbineFirstPoint.y,
+					currentPoint.x,
+					currentPoint.y,
+					_turbinePointColor
+				);
+
+			if (_takeToTheTopFirstPoint != null)
+				DrawRectangleOverlay
+				(
+					_takeToTheTopFirstPoint.x,
+					_takeToTheTopFirstPoint.y,
+					currentPoint.x,
+					currentPoint.y,
+					_takeToTheTopPointColor
+				);
 
 			if (_beamFirstPoint != null)
 			{
@@ -2187,12 +2296,36 @@ public class Machindustry extends Mod
 		}
 	}
 
+	private void WorldUpdateRunnable()
+	{
+		TakeToTheTop
+		(
+			Core.settings.getBool(_buildAtmosphericConcentrator),
+			Core.settings.getBool(_buildBeamNode),
+			Core.settings.getBool(_buildBuildTower),
+			Core.settings.getBool(_buildElectricHeater),
+			Core.settings.getBool(_buildLiquidTransport)
+		);
+
+		if (_resultFailure)
+		{
+			_resultFailure = false;
+			Vars.ui.showInfoToast(_failureMessage + ShowResultTime(), 1F);
+		}
+
+		if (_resultSuccess)
+		{
+			_resultSuccess = false;
+			Vars.ui.showInfoToast(_successMessage + ShowResultTime(), 1F);
+		}
+	}
+
 	public Machindustry()
 	{
 		super();
 
 		// Should remove after???
-		Events.run(Trigger.drawOver, _worldUpdateRunnable);
+		Events.run(Trigger.drawOver, _worldDrawRunnable);
 
 		Events.on(DisposeEvent.class, _gameExitEventCons);
 		Events.on(WorldLoadEvent.class, _worldLoadEventCons);
@@ -2238,6 +2371,8 @@ public class Machindustry extends Mod
 			{
 				if (code == _turbineBuilderCode)
 					_turbineFirstPoint = GetCurrentPoint();
+				else if (code == _takeToTheTopCode)
+					_takeToTheTopFirstPoint = GetCurrentPoint();
 				else if (code == _beamPathFinderCode)
 					_beamFirstPoint = GetCurrentPoint();
 				else if (code == _liquidPathFinderCode)
@@ -2265,6 +2400,14 @@ public class Machindustry extends Mod
 
 					_turbineFirstPoint = null;
 					_turbineLastPoint = null;
+				}
+				else if (code == _takeToTheTopCode)
+				{
+					_takeToTheTopLastPoint = GetCurrentPoint();
+					TakeToTheTop(_takeToTheTopFirstPoint.x, _takeToTheTopFirstPoint.y, _takeToTheTopLastPoint.x, _takeToTheTopLastPoint.y);
+
+					_takeToTheTopFirstPoint = null;
+					_takeToTheTopLastPoint = null;
 				}
 				else if (code == _beamPathFinderCode)
 				{

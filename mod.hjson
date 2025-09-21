@@ -1,9 +1,9 @@
 author: "[gold[]]Urij[[]]"
-description: "[gold[]]Machine do nothing I can not do. It just do faster.[[]]\n\n\n\n\n[red[]]E[[]][white[]]N[[]][cyan[]]: This mod is focused on the quality of the game in PvP mode on the planet Erekir. It is not intended for mobile devices.\n\nThe following features are currently implemented:\n – Finding path for items\n – Finding path for liquids\n – Finding path for beam nodes\n – Connecting turbine condensers in the map area to the main power net[[]]\n\n\n\n\n[red[]]R[[]][blue[]]U[[]][cyan[]]: Этот мод ориентирован на качество игры в режиме PvP на планете Эрекир. Он не предназначен для мобильных устройств.\n\nВ данный момент реализованы следующие возможности:\n – Построение маршрута для предметов\n – Построение маршрута для жидкостей\n – Построение маршрута для лучевых узлов\n – Присоединение жерловых конденсаторов в области карты к основной энергетической сети[[]]\n\n\n\n"
+description: "[gold[]]Machine do nothing I can not do. It just do faster.[[]]\n\n\n\n\n[red[]]E[[]][white[]]N[[]][cyan[]]: This mod is focused on the quality of the game in PvP mode on the planet Erekir. It is not intended for mobile devices.\n\nThe following features are currently implemented:\n – Finding path for items\n – Finding path for liquids\n – Finding path for beam nodes\n – Connecting turbine condensers in the map area to the main power net\n – Changing order of the build plan queue[[]]\n\n\n\n\n[red[]]R[[]][blue[]]U[[]][cyan[]]: Этот мод ориентирован на качество игры в режиме PvP на планете Эрекир. Он не предназначен для мобильных устройств.\n\nВ данный момент реализованы следующие возможности:\n – Построение маршрута для предметов\n – Построение маршрута для жидкостей\n – Построение маршрута для лучевых узлов\n – Присоединение жерловых конденсаторов в области карты к основной энергетической сети\n – Изменение очерёдности планов строительства[[]]\n\n\n"
 displayName: "[gold[]]Machindustry[[]]"
 hidden: true
 java: true
 main: "machindustry.Machindustry"
 minGameVersion: "146"
 name: "machindustry"
-version: "[gold[]]1.1[[]]"
+version: "[gold[]]1.2[[]]"

@@ -9,6 +9,7 @@ The following features are currently implemented:
 - Finding path for liquids  
 - Finding path for beam nodes  
 - Connecting turbine condensers in the map area to the main power net
+- Changing order of the build plan queue
 
 ## Settings & Usage
 
@@ -23,4 +24,4 @@ Will there be a version of this mod for Serpulo?<br>
 **No**[](/ "Unless someone reworks these algorithms for Serpulo")
 
 Will there be a version of this mod for mobile devices?<br>
-**Idk**
+**Mb**
