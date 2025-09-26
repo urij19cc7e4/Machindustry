@@ -2134,7 +2134,7 @@ public class LiquidPathFinder
 			final PathNode pathNode = pathNodes1.get(i);
 			final int idx3 = pathNode.i;
 
-			if (aMap[idx3] != INVISIBLE)
+			if (aMap[idx3] != INVISIBLE && aMap[idx3] != COLLIDE && aMap[idx3] != DANGER)
 			{
 				final int r1 = pathNode.r;
 				final int r0 = pPathNode == null ? -1 : pPathNode.r;

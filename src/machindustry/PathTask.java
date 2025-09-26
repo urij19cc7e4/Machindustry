@@ -3,36 +3,24 @@ package machindustry;
 public class PathTask
 {
 	/**
-	 * Path first point X coordinate
+	 * First point Point object if type is A -> B
 	*/
-	public final int x1;
+	public final Object o1;
 
 	/**
-	 * Path first point Y coordinate
+	 * Second point Point object if type is A -> B
 	*/
-	public final int y1;
-
-	/**
-	 * Path last point X coordinate
-	*/
-	public final int x2;
-
-	/**
-	 * Path last point Y coordinate
-	*/
-	public final int y2;
+	public final Object o2;
 
 	/**
 	 * Path type
 	*/
 	public final PathType type;
 
-	public PathTask(int x1, int y1, int x2, int y2, PathType type)
+	public PathTask(Object o1, Object o2, PathType type)
 	{
-		this.x1 = x1;
-		this.y1 = y1;
-		this.x2 = x2;
-		this.y2 = y2;
+		this.o1 = o1;
+		this.o2 = o2;
 		this.type = type;
 	}
 
@@ -40,6 +28,7 @@ public class PathTask
 	{
 		BEAM,
 		LIQUID,
-		SOLID
+		SOLID,
+		VENT
 	}
 }

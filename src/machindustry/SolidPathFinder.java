@@ -2063,49 +2063,52 @@ public class SolidPathFinder
 			final PathNode pathNode = pathNodes1.get(i);
 			final int idx3 = pathNode.i;
 
-			final int r1 = pathNode.r;
-			final int r0 = pPathNode == null ? -1 : pPathNode.r;
-			final int s1 = pathNode.s;
-			final int s0 = pPathNode == null ? 1 : pPathNode.s;
-
-			final int right = idx3 + 1;
-			final int upper = idx3 + _width;
-			final int left = idx3 - 1;
-			final int bottom = idx3 - _width;
-
-			final int rightIndex = pathNode.x + 1 < _width ? iMap[right] : -1;
-			final int upperIndex = pathNode.y + 1 < _height ? iMap[upper] : -1;
-			final int leftIndex = pathNode.x - 1 >= 0 ? iMap[left] : -1;
-			final int bottomIndex = pathNode.y - 1 >= 0 ? iMap[bottom] : -1;
-
-			if (r1 != RIGHT && r0 != LEFT && i < rightIndex && ii < rightIndex && (pathNode.x - 1 < 0 || !oMap[left]))
+			if (aMap[idx3] != COLLIDE && aMap[idx3] != DANGER)
 			{
-				ii = rightIndex;
-				rr = RIGHT;
-			}
+				final int r1 = pathNode.r;
+				final int r0 = pPathNode == null ? -1 : pPathNode.r;
+				final int s1 = pathNode.s;
+				final int s0 = pPathNode == null ? 1 : pPathNode.s;
 
-			if (r1 != UPPER && r0 != BOTTOM && i < upperIndex && ii < upperIndex && (pathNode.y - 1 < 0 || !oMap[bottom]))
-			{
-				ii = upperIndex;
-				rr = UPPER;
-			}
+				final int right = idx3 + 1;
+				final int upper = idx3 + _width;
+				final int left = idx3 - 1;
+				final int bottom = idx3 - _width;
 
-			if (r1 != LEFT && r0 != RIGHT && i < leftIndex && ii < leftIndex && (pathNode.x + 1 >= _width || !oMap[right]))
-			{
-				ii = leftIndex;
-				rr = LEFT;
-			}
+				final int rightIndex = pathNode.x + 1 < _width ? iMap[right] : -1;
+				final int upperIndex = pathNode.y + 1 < _height ? iMap[upper] : -1;
+				final int leftIndex = pathNode.x - 1 >= 0 ? iMap[left] : -1;
+				final int bottomIndex = pathNode.y - 1 >= 0 ? iMap[bottom] : -1;
 
-			if (r1 != BOTTOM && r0 != UPPER && i < bottomIndex && ii < bottomIndex && (pathNode.y + 1 >= _height || !oMap[upper]))
-			{
-				ii = bottomIndex;
-				rr = BOTTOM;
-			}
+				if (r1 != RIGHT && r0 != LEFT && i < rightIndex && ii < rightIndex && (pathNode.x - 1 < 0 || !oMap[left]))
+				{
+					ii = rightIndex;
+					rr = RIGHT;
+				}
 
-			if (ii != -1 && s1 == 1 && s0 == 1 && pathNodes1.get(ii).s == 1 && (ii == 0 || pathNodes1.get(ii - 1).s == 1))
-			{
-				pathNode.r = rr;
-				i = ii - 1;
+				if (r1 != UPPER && r0 != BOTTOM && i < upperIndex && ii < upperIndex && (pathNode.y - 1 < 0 || !oMap[bottom]))
+				{
+					ii = upperIndex;
+					rr = UPPER;
+				}
+
+				if (r1 != LEFT && r0 != RIGHT && i < leftIndex && ii < leftIndex && (pathNode.x + 1 >= _width || !oMap[right]))
+				{
+					ii = leftIndex;
+					rr = LEFT;
+				}
+
+				if (r1 != BOTTOM && r0 != UPPER && i < bottomIndex && ii < bottomIndex && (pathNode.y + 1 >= _height || !oMap[upper]))
+				{
+					ii = bottomIndex;
+					rr = BOTTOM;
+				}
+
+				if (ii != -1 && s1 == 1 && s0 == 1 && pathNodes1.get(ii).s == 1 && (ii == 0 || pathNodes1.get(ii - 1).s == 1))
+				{
+					pathNode.r = rr;
+					i = ii - 1;
+				}
 			}
 
 			pathNodes2.add(pathNode);

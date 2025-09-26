@@ -3,6 +3,7 @@ package machindustry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
+import java.util.ListIterator;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
@@ -34,6 +35,7 @@ import mindustry.game.EventType.Trigger;
 import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.game.Team;
 import mindustry.gen.Building;
+import mindustry.graphics.MultiPacker.PageType;
 import mindustry.mod.Mod;
 import mindustry.ui.dialogs.BaseDialog;
 import mindustry.ui.dialogs.SettingsMenuDialog.SettingsCategory;
@@ -67,11 +69,13 @@ public class Machindustry extends Mod
 	private static final String _polygonSafeZoneName = "polygon-safe-zone";
 	private static final String _radiusSafeZoneName = "radius-safe-zone";
 
-	private static final String _buildAtmosphericConcentrator = "build-atmospheric-concentrator";
-	private static final String _buildBeamNode = "build-beam-node";
-	private static final String _buildBuildTower = "build-build-tower";
-	private static final String _buildElectricHeater = "build-electric-heater";
-	private static final String _buildLiquidTransport = "build-liquid-transport";
+	private static final String _turbineCountName = "turbine-count";
+
+	private static final String _buildAtmosphericConcentratorName = "build-atmospheric-concentrator";
+	private static final String _buildBeamNodeName = "build-beam-node";
+	private static final String _buildBuildTowerName = "build-build-tower";
+	private static final String _buildElectricHeaterName = "build-electric-heater";
+	private static final String _buildLiquidTransportName = "build-liquid-transport";
 
 	private static final String _beamFrequencyName = "beam-time-check-frequency";
 	private static final String _beamBuildTimeName = "beam-time-to-build-path";
@@ -119,10 +123,10 @@ public class Machindustry extends Mod
 	private final Cons<DisposeEvent> _gameExitEventCons = e -> MachindustryDispose();
 	private final Cons<WorldLoadEvent> _worldLoadEventCons = e -> MachindustryUpdate();
 
-	private final Runnable _worldUpdateRunnable = () -> WorldUpdateRunnable();
 	private final Runnable _worldDrawRunnable = () -> WorldDrawRunnable();
+	private final Runnable _worldUpdateRunnable = () -> WorldUpdateRunnable();
 
-	private final TaskQueue _taskQueue = new TaskQueue();
+	private final QueueSPSC<PathTask> _taskQueue = new QueueSPSC<PathTask>(100);
 	private final Thread _thread;
 
 	private String _failureMessage = null;
@@ -131,6 +135,7 @@ public class Machindustry extends Mod
 	private String _resultMessage1 = null;
 	private String _resultMessage2 = null;
 	private String _resultMessage3 = null;
+	private String _resultMessage4 = null;
 
 	/**
 	 * Used to stop worker thread
@@ -603,6 +608,9 @@ public class Machindustry extends Mod
 			Core.settings.put("turbine-key", code == null ? _turbineBuilderCode.name().toUpperCase() : code.name().toUpperCase());
 		});
 
+		machindustrySettingsTable.pref(invisibleSpace);
+		machindustrySettingsTable.sliderPref(_turbineCountName, 25, 1, 100, 1, v -> Integer.toString(v));
+
 		machindustrySettingsTable.pref(visibleSpace);
 		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.build-title")));
 
@@ -614,11 +622,11 @@ public class Machindustry extends Mod
 		});
 
 		machindustrySettingsTable.pref(invisibleSpace);
-		machindustrySettingsTable.checkPref(_buildAtmosphericConcentrator, false);
-		machindustrySettingsTable.checkPref(_buildBeamNode, false);
-		machindustrySettingsTable.checkPref(_buildBuildTower, false);
-		machindustrySettingsTable.checkPref(_buildElectricHeater, false);
-		machindustrySettingsTable.checkPref(_buildLiquidTransport, false);
+		machindustrySettingsTable.checkPref(_buildAtmosphericConcentratorName, false);
+		machindustrySettingsTable.checkPref(_buildBeamNodeName, false);
+		machindustrySettingsTable.checkPref(_buildBuildTowerName, false);
+		machindustrySettingsTable.checkPref(_buildElectricHeaterName, false);
+		machindustrySettingsTable.checkPref(_buildLiquidTransportName, false);
 
 		machindustrySettingsTable.pref(visibleSpace);
 		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.beam-title")));
@@ -743,7 +751,7 @@ public class Machindustry extends Mod
 				break;
 		}
 
-		if (overrideX != -1 || overrideX >= 0 || overrideX < _width || overrideY != -1 || overrideY >= 0 || overrideY < _height)
+		if (overrideX >= 0 && overrideX < _width && overrideY >= 0 && overrideY < _height)
 		{
 			final BuildPlan aBuildPlan = GetPlanIntersection(worldState.BuildPlans, overrideX, overrideY);
 			final int overrideI = overrideX + overrideY * _width;
@@ -1643,6 +1651,141 @@ public class Machindustry extends Mod
 		return null;
 	}
 
+	private LinkedList<BuildPlan> FindPath
+	(
+		final BeamPathFinder pathFinder,
+		final WorldState worldState,
+		final LinkedList<Point> powers,
+		final LinkedList<Point> turbines,
+		final long taskEpoch
+	)
+	{
+		final long endTime = System.nanoTime() + (long)Core.settings.getInt(_beamBuildTotalTimeName) * (long)turbines.size() * (long)1000000;
+
+		final boolean ignoreMask = Core.settings.getBool(_beamIgnoreMaskName);
+		final boolean targetMode = Core.settings.getBool(_beamTargetModeName);
+
+		worldState.UpdateMap();
+
+		if (Expired(endTime, taskEpoch))
+			return null;
+
+		FillMasksMap
+		(
+			worldState.Map,
+			Core.settings.getBool(_beamMaskAroundBuildName),
+			Core.settings.getBool(_beamMaskAroundCoreName),
+			Core.settings.getBool(_beamMaskAroundLiquidName),
+			Core.settings.getBool(_beamMaskAroundSolidName)
+		);
+
+		if (Expired(endTime, taskEpoch))
+			return null;
+
+		pathFinder.UpdateMap(worldState.Map);
+
+		if (Expired(endTime, taskEpoch))
+			return null;
+
+		pathFinder.UpdateMap(worldState.BuildPlans);
+
+		if (Expired(endTime, taskEpoch))
+			return null;
+
+		Point point1 = null;
+		Point point2 = null;
+
+		int ptDistance = Integer.MAX_VALUE;
+
+		for (final Point power : powers)
+			for (final Point turbine : turbines)
+			{
+				final int distance = Math.abs(power.x - turbine.x) + Math.abs(power.y - turbine.y);
+
+				if (ptDistance > distance)
+				{
+					point1 = power;
+					point2 = turbine;
+
+					ptDistance = distance;
+				}
+			}
+
+		if (point2 == null)
+			point2 = turbines.getFirst();
+
+		if (Expired(endTime, taskEpoch))
+			return null;
+
+		LinkedList<BuildPlan> buildPlans = null;
+
+		if (point1 != null)
+		{
+			final long aStartTime = System.nanoTime();
+			buildPlans = pathFinder.BuildPath(point1.x, point1.y, point2.x, point2.y, targetMode, null);
+			final long aEndTime = System.nanoTime();
+
+			if (buildPlans != null)
+				_resultTimeAlgorithm = (aEndTime - aStartTime) / (long)1000000;
+		}
+
+		if (buildPlans == null)
+			buildPlans = new LinkedList<BuildPlan>();
+
+		final Point shitForJava1 = point2;
+		turbines.removeIf(v -> v == shitForJava1);
+
+		point1 = point2;
+
+		final int size = turbines.size();
+		for (int i = 0; i < size; ++i)
+		{
+			if (Expired(endTime, taskEpoch))
+				return buildPlans;
+
+			point2 = null;
+			int ttDistance = Integer.MAX_VALUE;
+
+			for (final Point point : turbines)
+			{
+				final int distance = Math.abs(point1.x - point.x) + Math.abs(point1.y - point.y);
+
+				if (ttDistance > distance)
+				{
+					point2 = point;
+					ttDistance = distance;
+				}
+			}
+
+			if (Expired(endTime, taskEpoch) || point2 == null)
+				return buildPlans;
+
+			final long aStartTime = System.nanoTime();
+			final LinkedList<BuildPlan> buildPlans2 = pathFinder.BuildPath
+			(
+				point1.x,
+				point1.y,
+				point2.x,
+				point2.y,
+				targetMode,
+				null
+			);
+			final long aEndTime = System.nanoTime();
+
+			if (buildPlans2 != null)
+			{
+				_resultTimeAlgorithm = (aEndTime - aStartTime) / (long)1000000;
+				buildPlans.addAll(buildPlans2);
+			}
+
+			final Point shitForJava2 = point2;
+			turbines.removeIf(v -> v == shitForJava2);
+			point1 = point2;
+		}
+
+		return buildPlans;
+	}
+
 	private void FindVent(final int x1, final int y1, final int x2, final int y2)
 	{
 		final int xMax = Math.min(x1 >= x2 ? x1 : x2, _width - 2);
@@ -1660,8 +1803,10 @@ public class Machindustry extends Mod
 		if (tiles == null)
 			throw new NullPointerException("Vars.world.tiles is null");
 
+		final LinkedList<Point> powers = new LinkedList<Point>();
+		final LinkedList<Point> turbines = new LinkedList<Point>();
+
 		final Queue<BuildPlan> queue = Vars.player.unit().plans;
-		Point turbine = null;
 
 		final int step = _width - (xMax - xMin + 1);
 		for (int y = yMin, i = xMin + yMin * _width; y <= yMax; ++y, i += step)
@@ -1685,17 +1830,12 @@ public class Machindustry extends Mod
 
 				if (Build.validPlace(Blocks.turbineCondenser, team, x, y, -1))
 				{
-					final Point point = new Point(x, y, i);
-
-					if (turbine != null)
-						_taskQueue.AddTask(new PathTask(point.x, point.y, turbine.x, turbine.y, PathType.BEAM));
-
+					turbines.addLast(new Point(x, y, i));
 					queue.addLast(new BuildPlan(x, y, -1, Blocks.turbineCondenser));
-					turbine = point;
 				}
 			}
 
-		if (turbine != null)
+		if (turbines.size() != 0)
 		{
 			PowerGraph powerGraph = null;
 			float capacity = -1F;
@@ -1727,24 +1867,11 @@ public class Machindustry extends Mod
 				}
 
 			if (powerGraph != null)
-			{
-				Building cBuild = null;
-				int cDistance = Integer.MAX_VALUE;
-
 				for (final Building build : powerGraph.all)
-				{
-					final int distance = Math.abs((int)build.tile.x - turbine.x) + Math.abs((int)build.tile.y - turbine.y);
+					powers.addLast(new Point((int)build.tile.x, (int)build.tile.y, (int)build.tile.x + (int)build.tile.y * _width));
 
-					if (cDistance > distance)
-					{
-						cBuild = build;
-						cDistance = distance;
-					}
-				}
-
-				if (cBuild != null)
-					_taskQueue.AddTask(new PathTask(turbine.x, turbine.y, (int)cBuild.tile.x, (int)cBuild.tile.y, PathType.BEAM));
-			}
+			if (!_taskQueue.Produce(new PathTask(powers, turbines, PathType.VENT)))
+				Vars.ui.showInfoToast(_resultMessage4, 1F);
 		}
 	}
 
@@ -1940,7 +2067,6 @@ public class Machindustry extends Mod
 		// Events.remove(DisposeEvent.class, _gameExitEventCons);
 		Events.remove(WorldLoadEvent.class, _worldLoadEventCons);
 
-		_taskQueue.ClearTasks();
 		++_taskEpoch;
 
 		if (_worldState != null)
@@ -1960,7 +2086,6 @@ public class Machindustry extends Mod
 		_width = Vars.world.width();
 		_size = _height * _width;
 
-		_taskQueue.ClearTasks();
 		++_taskEpoch;
 
 		if (_worldState != null)
@@ -2171,10 +2296,10 @@ public class Machindustry extends Mod
 		while (_running)
 		{
 			if (Vars.state.isMenu())
-				_taskQueue.ClearTasks();
+				_taskQueue.Clear();
 
 			final long taskEpoch = _taskEpoch;
-			final PathTask task = _taskQueue.RemoveTask();
+			final PathTask task = _taskQueue.Consume();
 
 			if (task == null)
 			{
@@ -2194,15 +2319,53 @@ public class Machindustry extends Mod
 					switch (task.type)
 					{
 						case BEAM:
-							buildPlans = FindPath(_beamPathFinder, _worldState, task.x1, task.y1, task.x2, task.y2, taskEpoch);
+							buildPlans = FindPath
+							(
+								_beamPathFinder,
+								_worldState,
+								((Point)task.o1).x,
+								((Point)task.o1).y,
+								((Point)task.o2).x,
+								((Point)task.o2).y, 
+								taskEpoch
+							);
 							break;
 
 						case LIQUID:
-							buildPlans = FindPath(_liquidPathFinder, _worldState, task.x1, task.y1, task.x2, task.y2, taskEpoch);
+							buildPlans = FindPath
+							(
+								_liquidPathFinder,
+								_worldState,
+								((Point)task.o1).x,
+								((Point)task.o1).y,
+								((Point)task.o2).x,
+								((Point)task.o2).y, 
+								taskEpoch
+							);
 							break;
 
 						case SOLID:
-							buildPlans = FindPath(_solidPathFinder, _worldState, task.x1, task.y1, task.x2, task.y2, taskEpoch);
+							buildPlans = FindPath
+							(
+								_solidPathFinder,
+								_worldState,
+								((Point)task.o1).x,
+								((Point)task.o1).y,
+								((Point)task.o2).x,
+								((Point)task.o2).y, 
+								taskEpoch
+							);
+							break;
+
+						case VENT:
+							buildPlans = FindPath
+							(
+								_beamPathFinder,
+								_worldState,
+								(LinkedList<Point>)task.o1,
+								(LinkedList<Point>)task.o2,
+								taskEpoch
+							);
 							break;
 
 						default:
@@ -2217,14 +2380,14 @@ public class Machindustry extends Mod
 					PrintLine
 					(
 						"Exception catched when working on task" +
-						" x1 = " + task.x1 +
-						", y1 = " + task.y1 +
-						", x2 = " + task.x2 +
-						", y2 = " + task.y2 +
-						", type = " + task.type +
-						", epoch = " + taskEpoch +
-						", global epoch = " + _taskEpoch +
-						", exception = '" + e.getMessage() + "'"
+						(task.o1 instanceof Point ? " x1 = " + ((Point)task.o1).x + "," : "") +
+						(task.o1 instanceof Point ? " y1 = " + ((Point)task.o2).x + "," : "") +
+						(task.o2 instanceof Point ? " x2 = " + ((Point)task.o2).x + "," : "") +
+						(task.o2 instanceof Point ? " y2 = " + ((Point)task.o2).y + "," : "") +
+						" type = " + task.type + "," +
+						" epoch = " + taskEpoch + "," +
+						" global epoch = " + _taskEpoch + "," +
+						" exception = '" + e.getMessage() + "'"
 					);
 
 					e.printStackTrace();
@@ -2300,11 +2463,11 @@ public class Machindustry extends Mod
 	{
 		TakeToTheTop
 		(
-			Core.settings.getBool(_buildAtmosphericConcentrator),
-			Core.settings.getBool(_buildBeamNode),
-			Core.settings.getBool(_buildBuildTower),
-			Core.settings.getBool(_buildElectricHeater),
-			Core.settings.getBool(_buildLiquidTransport)
+			Core.settings.getBool(_buildAtmosphericConcentratorName),
+			Core.settings.getBool(_buildBeamNodeName),
+			Core.settings.getBool(_buildBuildTowerName),
+			Core.settings.getBool(_buildElectricHeaterName),
+			Core.settings.getBool(_buildLiquidTransportName)
 		);
 
 		if (_resultFailure)
@@ -2344,6 +2507,7 @@ public class Machindustry extends Mod
 		_resultMessage1 = " [[";
 		_resultMessage2 = " " + Core.bundle.get("machindustry.ms") + "; ";
 		_resultMessage3 = " " + Core.bundle.get("machindustry.ms") + "]";
+		_resultMessage4 = Core.bundle.get("machindustry.overflow-message");
 
 		if (!Core.settings.getBool(_name))
 		{
@@ -2412,14 +2576,8 @@ public class Machindustry extends Mod
 				else if (code == _beamPathFinderCode)
 				{
 					_beamLastPoint = GetCurrentPoint();
-					_taskQueue.AddTask(new PathTask
-					(
-						_beamFirstPoint.x,
-						_beamFirstPoint.y,
-						_beamLastPoint.x,
-						_beamLastPoint.y,
-						PathType.BEAM
-					));
+					if (!_taskQueue.Produce(new PathTask(_beamFirstPoint, _beamLastPoint, PathType.BEAM)))
+						Vars.ui.showInfoToast(_resultMessage4, 1F);
 
 					_beamFirstPoint = null;
 					_beamLastPoint = null;
@@ -2427,14 +2585,8 @@ public class Machindustry extends Mod
 				else if (code == _liquidPathFinderCode)
 				{
 					_liquidLastPoint = GetCurrentPoint();
-					_taskQueue.AddTask(new PathTask
-					(
-						_liquidFirstPoint.x,
-						_liquidFirstPoint.y,
-						_liquidLastPoint.x,
-						_liquidLastPoint.y,
-						PathType.LIQUID
-					));
+					if (!_taskQueue.Produce(new PathTask(_liquidFirstPoint, _liquidLastPoint, PathType.LIQUID)))
+						Vars.ui.showInfoToast(_resultMessage4, 1F);
 
 					_liquidFirstPoint = null;
 					_liquidLastPoint = null;
@@ -2442,14 +2594,8 @@ public class Machindustry extends Mod
 				else if (code == _solidPathFinderCode)
 				{
 					_solidLastPoint = GetCurrentPoint();
-					_taskQueue.AddTask(new PathTask
-					(
-						_solidFirstPoint.x,
-						_solidFirstPoint.y,
-						_solidLastPoint.x,
-						_solidLastPoint.y,
-						PathType.SOLID
-					));
+					if (!_taskQueue.Produce(new PathTask(_solidFirstPoint, _solidLastPoint, PathType.SOLID)))
+						Vars.ui.showInfoToast(_resultMessage4, 1F);
 
 					DisableRouterSorter(_solidFirstPoint.x, _solidFirstPoint.y);
 
