@@ -17,7 +17,7 @@ Setting and usage topics are in a [separate file](preview/preview.md) because th
 
 ## FAQ
 
-Will this mod work with any other content besides Erekir (like Astosus)?<br>
+Will this mod work with any other content besides Erekir (like Asthosus)?<br>
 **No**[](/ "Unless someone reworks these algorithms for specific content")
 
 Will there be a version of this mod for Serpulo?<br>

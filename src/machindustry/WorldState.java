@@ -3,7 +3,6 @@ package machindustry;
 import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.concurrent.atomic.AtomicReference;
 
 import arc.Events;
 import arc.func.Cons;
@@ -72,12 +71,12 @@ public class WorldState implements AutoCloseable
 	public final boolean[] Map;
 
 	/**
-	 * Main game thread must expect not null. Not main game thread must expect null.
+	 * Build plans to be added to player build plans at the next game update
 	*/
-	public final AtomicReference<BuildPlan[]> BuildPlansMachinary = new AtomicReference<BuildPlan[]>(null);
+	public final QueueSPSC<BuildPlan[]> BuildPlansMachinary = new QueueSPSC<>(100);
 
 	/**
-	 * Do not direct access, copy first
+	 * Latest copy of player build plans. Do not direct access, copy first.
 	*/
 	public BuildPlan[] BuildPlans = null;
 
@@ -118,13 +117,10 @@ public class WorldState implements AutoCloseable
 		final Seq<TeamData> teams = Vars.state.teams.active;
 		final Queue<BuildPlan> queue = Vars.player.unit().plans;
 
-		// Need to change it to null so cmpxchg value to null
-		// If other thread already cmpxchg null to not null then do not care
-		final BuildPlan[] buildPlansMachinary = BuildPlansMachinary.get();
-		BuildPlansMachinary.compareAndSet(buildPlansMachinary, null);
-
-		if (buildPlansMachinary != null)
+		while (!BuildPlansMachinary.IsEmpty())
 		{
+			final BuildPlan[] buildPlansMachinary = BuildPlansMachinary.Consume();
+
 			queue.ensureCapacity(buildPlansMachinary.length);
 
 			for (final BuildPlan buildPlan : buildPlansMachinary)

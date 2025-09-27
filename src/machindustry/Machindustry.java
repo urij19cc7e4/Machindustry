@@ -3,7 +3,6 @@ package machindustry;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.LinkedList;
-import java.util.ListIterator;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
@@ -35,7 +34,6 @@ import mindustry.game.EventType.Trigger;
 import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.game.Team;
 import mindustry.gen.Building;
-import mindustry.graphics.MultiPacker.PageType;
 import mindustry.mod.Mod;
 import mindustry.ui.dialogs.BaseDialog;
 import mindustry.ui.dialogs.SettingsMenuDialog.SettingsCategory;
@@ -1711,18 +1709,26 @@ public class Machindustry extends Mod
 				}
 			}
 
-		if (point2 == null)
-			point2 = turbines.getFirst();
-
 		if (Expired(endTime, taskEpoch))
 			return null;
 
 		LinkedList<BuildPlan> buildPlans = null;
 
+		if (point2 == null)
+			point2 = turbines.getFirst();
+
 		if (point1 != null)
 		{
 			final long aStartTime = System.nanoTime();
-			buildPlans = pathFinder.BuildPath(point1.x, point1.y, point2.x, point2.y, targetMode, null);
+			buildPlans = pathFinder.BuildPath
+			(
+				point1.x,
+				point1.y,
+				point2.x,
+				point2.y,
+				targetMode,
+				null
+			);
 			final long aEndTime = System.nanoTime();
 
 			if (buildPlans != null)
@@ -1761,7 +1767,7 @@ public class Machindustry extends Mod
 				return buildPlans;
 
 			final long aStartTime = System.nanoTime();
-			final LinkedList<BuildPlan> buildPlans2 = pathFinder.BuildPath
+			final LinkedList<BuildPlan> aBuildPlans = pathFinder.BuildPath
 			(
 				point1.x,
 				point1.y,
@@ -1772,14 +1778,15 @@ public class Machindustry extends Mod
 			);
 			final long aEndTime = System.nanoTime();
 
-			if (buildPlans2 != null)
+			if (aBuildPlans != null)
 			{
 				_resultTimeAlgorithm = (aEndTime - aStartTime) / (long)1000000;
-				buildPlans.addAll(buildPlans2);
+				buildPlans.addAll(aBuildPlans);
 			}
 
 			final Point shitForJava2 = point2;
 			turbines.removeIf(v -> v == shitForJava2);
+
 			point1 = point2;
 		}
 
@@ -2380,10 +2387,12 @@ public class Machindustry extends Mod
 					PrintLine
 					(
 						"Exception catched when working on task" +
-						(task.o1 instanceof Point ? " x1 = " + ((Point)task.o1).x + "," : "") +
-						(task.o1 instanceof Point ? " y1 = " + ((Point)task.o2).x + "," : "") +
-						(task.o2 instanceof Point ? " x2 = " + ((Point)task.o2).x + "," : "") +
-						(task.o2 instanceof Point ? " y2 = " + ((Point)task.o2).y + "," : "") +
+						(task.o1 instanceof Point ? (" x1 = " + ((Point)task.o1).x + ",") : "") +
+						(task.o1 instanceof Point ? (" y1 = " + ((Point)task.o1).y + ",") : "") +
+						(task.o1 instanceof LinkedList ? (" list1 size = " + ((LinkedList<?>)task.o1).size() + ",") : "") +
+						(task.o2 instanceof Point ? (" x2 = " + ((Point)task.o2).x + ",") : "") +
+						(task.o2 instanceof Point ? (" y2 = " + ((Point)task.o2).y + ",") : "") +
+						(task.o2 instanceof LinkedList ? (" list2 size = " + ((LinkedList<?>)task.o2).size() + ",") : "") +
 						" type = " + task.type + "," +
 						" epoch = " + taskEpoch + "," +
 						" global epoch = " + _taskEpoch + "," +
@@ -2398,9 +2407,9 @@ public class Machindustry extends Mod
 				else
 				{
 					_resultSuccess = true;
-					BuildPlan[] buildPlansArray = buildPlans.toArray(new BuildPlan[buildPlans.size()]);
+					final BuildPlan[] buildPlansArray = buildPlans.toArray(new BuildPlan[buildPlans.size()]);
 
-					while (_running && !_worldState.BuildPlansMachinary.compareAndSet(null, buildPlansArray))
+					while (_running && !Vars.state.isMenu() && !_worldState.BuildPlansMachinary.Produce(buildPlansArray))
 					{
 						try
 						{

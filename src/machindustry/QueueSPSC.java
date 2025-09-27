@@ -13,7 +13,7 @@ public class QueueSPSC<T>
 	private final Object[] _data;
 	private final int _size;
 
-	// Get rid of cache contention, 64 bytes pad
+	// 64-byte pad to ensure there is no cache contention
 	private final long _padField00 = 0;
 	private final long _padField01 = 0;
 	private final long _padField02 = 0;
@@ -25,7 +25,7 @@ public class QueueSPSC<T>
 
 	private volatile int _head = 0;
 
-	// Get rid of cache contention, 64 bytes pad
+	// 64-byte pad to ensure there is no cache contention
 	private final long _padField10 = 0;
 	private final long _padField11 = 0;
 	private final long _padField12 = 0;

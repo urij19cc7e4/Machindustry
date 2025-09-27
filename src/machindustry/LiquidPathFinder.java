@@ -1544,7 +1544,7 @@ public class LiquidPathFinder
 			{
 				if (dx == -1)
 				{
-					if (pRotate != LEFT && (x1 - 1 < 0 || !oMap[idx - 1]))
+					if (pRotate != LEFT && (x1 - 1 < 0 || !oMap[idx - 1]) && !(invisible && vMap[idx]))
 					{
 						pathNodes1.add(new PathNode(RIGHT, 1, x1, y1, idx));
 						break;
@@ -1552,7 +1552,7 @@ public class LiquidPathFinder
 				}
 				else if (dy == -1)
 				{
-					if (pRotate != BOTTOM && (y1 - 1 < 0 || !oMap[idx - _width]))
+					if (pRotate != BOTTOM && (y1 - 1 < 0 || !oMap[idx - _width]) && !(invisible && !vMap[idx]))
 					{
 						pathNodes1.add(new PathNode(UPPER, 1, x1, y1, idx));
 						break;
@@ -1560,7 +1560,7 @@ public class LiquidPathFinder
 				}
 				else if (dx == 1)
 				{
-					if (pRotate != RIGHT && (x1 + 1 >= _width || !oMap[idx + 1]))
+					if (pRotate != RIGHT && (x1 + 1 >= _width || !oMap[idx + 1]) && !(invisible && vMap[idx]))
 					{
 						pathNodes1.add(new PathNode(LEFT, 1, x1, y1, idx));
 						break;
@@ -1568,7 +1568,7 @@ public class LiquidPathFinder
 				}
 				else // if (dy == 1)
 				{
-					if (pRotate != UPPER && (y1 + 1 >= _height || !oMap[idx + _width]))
+					if (pRotate != UPPER && (y1 + 1 >= _height || !oMap[idx + _width]) && !(invisible && !vMap[idx]))
 					{
 						pathNodes1.add(new PathNode(BOTTOM, 1, x1, y1, idx));
 						break;
