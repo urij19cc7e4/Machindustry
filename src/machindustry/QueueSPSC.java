@@ -14,25 +14,41 @@ public class QueueSPSC<T>
 	private final int _size;
 
 	// 64-byte pad to ensure there is no cache contention
+	@SuppressWarnings("unused")
 	private final long _padField00 = 0;
+	@SuppressWarnings("unused")
 	private final long _padField01 = 0;
+	@SuppressWarnings("unused")
 	private final long _padField02 = 0;
+	@SuppressWarnings("unused")
 	private final long _padField03 = 0;
+	@SuppressWarnings("unused")
 	private final long _padField04 = 0;
+	@SuppressWarnings("unused")
 	private final long _padField05 = 0;
+	@SuppressWarnings("unused")
 	private final long _padField06 = 0;
+	@SuppressWarnings("unused")
 	private final long _padField07 = 0;
 
 	private volatile int _head = 0;
 
 	// 64-byte pad to ensure there is no cache contention
+	@SuppressWarnings("unused")
 	private final long _padField10 = 0;
+	@SuppressWarnings("unused")
 	private final long _padField11 = 0;
+	@SuppressWarnings("unused")
 	private final long _padField12 = 0;
+	@SuppressWarnings("unused")
 	private final long _padField13 = 0;
+	@SuppressWarnings("unused")
 	private final long _padField14 = 0;
+	@SuppressWarnings("unused")
 	private final long _padField15 = 0;
+	@SuppressWarnings("unused")
 	private final long _padField16 = 0;
+	@SuppressWarnings("unused")
 	private final long _padField17 = 0;
 
 	private volatile int _tail = 0;

@@ -27,7 +27,6 @@ import mindustry.world.Tiles;
 import mindustry.world.blocks.environment.Floor;
 import mindustry.world.blocks.storage.CoreBlock.CoreBuild;
 
-@SuppressWarnings({ "deprecation", "removal", "unchecked" })
 public class WorldState implements AutoCloseable
 {
 	/**
