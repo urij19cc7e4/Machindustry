@@ -80,6 +80,13 @@ public class WorldState implements AutoCloseable
 	public BuildPlan[] BuildPlans = null;
 
 	/**
+	 * Used to track if player build plans changes in main game thread are already shown in copy of player build plans.
+	 * It must be incremented AFTER assigning reference of BuildPlans.
+	 * It must be locally stored BEFORE taking reference of BuildPlans.
+	*/
+	public long BuildPlanEpoch = (long)0;
+
+	/**
 	 * Better safe than sorry. Increases polygon borders between cores from 1 to 3. This is TILE term not UNIT (not x8).
 	*/
 	public boolean PolygonSafeZone = true;
@@ -148,6 +155,8 @@ public class WorldState implements AutoCloseable
 
 		_cores = cores;
 		BuildPlans = buildPlans;
+
+		++BuildPlanEpoch;
 
 		if (afterUpdateFunc != null)
 			afterUpdateFunc.run();

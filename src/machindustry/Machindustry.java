@@ -67,8 +67,6 @@ public class Machindustry extends Mod
 	private static final String _polygonSafeZoneName = "polygon-safe-zone";
 	private static final String _radiusSafeZoneName = "radius-safe-zone";
 
-	private static final String _turbineCountName = "turbine-count";
-
 	private static final String _buildAtmosphericConcentratorName = "build-atmospheric-concentrator";
 	private static final String _buildBeamNodeName = "build-beam-node";
 	private static final String _buildBuildTowerName = "build-build-tower";
@@ -606,9 +604,6 @@ public class Machindustry extends Mod
 			Core.settings.put("turbine-key", code == null ? _turbineBuilderCode.name().toUpperCase() : code.name().toUpperCase());
 		});
 
-		machindustrySettingsTable.pref(invisibleSpace);
-		machindustrySettingsTable.sliderPref(_turbineCountName, 25, 1, 100, 1, v -> Integer.toString(v));
-
 		machindustrySettingsTable.pref(visibleSpace);
 		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.build-title")));
 
@@ -835,7 +830,7 @@ public class Machindustry extends Mod
 							final boolean c = block instanceof CoreBlock;
 							final boolean l = block instanceof LiquidBlock;
 							final boolean s = block.isDuct;
-							final boolean b = !(c || l || s);
+							final boolean b = !(c || l || s) && (block.hasItems || block.hasLiquids);
 
 							if ((maskAroundBuild && b) || (maskAroundCore && c) || (maskAroundLiquid && l) || (maskAroundSolid && s))
 							{
@@ -1719,7 +1714,7 @@ public class Machindustry extends Mod
 
 		if (point1 != null)
 		{
-			final long aStartTime = System.nanoTime();
+			long aStartTime = System.nanoTime();
 			buildPlans = pathFinder.BuildPath
 			(
 				point1.x,
@@ -1727,9 +1722,27 @@ public class Machindustry extends Mod
 				point2.x,
 				point2.y,
 				targetMode,
-				null
+				_masksMap
 			);
-			final long aEndTime = System.nanoTime();
+			long aEndTime = System.nanoTime();
+
+			if (buildPlans == null && ignoreMask)
+			{
+				if (Expired(endTime, taskEpoch))
+					return buildPlans;
+
+				aStartTime = System.nanoTime();
+				buildPlans = pathFinder.BuildPath
+				(
+					point1.x,
+					point1.y,
+					point2.x,
+					point2.y,
+					targetMode,
+					null
+				);
+				aEndTime = System.nanoTime();
+			}
 
 			if (buildPlans != null)
 				_resultTimeAlgorithm = (aEndTime - aStartTime) / (long)1000000;
@@ -1763,20 +1776,38 @@ public class Machindustry extends Mod
 				}
 			}
 
-			if (Expired(endTime, taskEpoch) || point2 == null)
+			if (Expired(endTime, taskEpoch))
 				return buildPlans;
 
-			final long aStartTime = System.nanoTime();
-			final LinkedList<BuildPlan> aBuildPlans = pathFinder.BuildPath
+			long aStartTime = System.nanoTime();
+			LinkedList<BuildPlan> aBuildPlans = pathFinder.BuildPath
 			(
 				point1.x,
 				point1.y,
 				point2.x,
 				point2.y,
 				targetMode,
-				null
+				_masksMap
 			);
-			final long aEndTime = System.nanoTime();
+			long aEndTime = System.nanoTime();
+
+			if (aBuildPlans == null && ignoreMask)
+			{
+				if (Expired(endTime, taskEpoch))
+					return buildPlans;
+
+				aStartTime = System.nanoTime();
+				aBuildPlans = pathFinder.BuildPath
+				(
+					point1.x,
+					point1.y,
+					point2.x,
+					point2.y,
+					targetMode,
+					null
+				);
+				aEndTime = System.nanoTime();
+			}
 
 			if (aBuildPlans != null)
 			{
@@ -1820,7 +1851,10 @@ public class Machindustry extends Mod
 			CHECK_VENT:
 			for (int x = xMin; x <= xMax; ++x, ++i)
 			{
-				if (tiles.geti(i).floor().attributes.get(Attribute.steam) <= 0F)
+				Tile tile = tiles.geti(i);
+				Building build = tile.build;
+
+				if (tile.floor().attributes.get(Attribute.steam) <= 0F || (build != null && build.team == team) || GetPlanIntersection(queue, x, y) != null)
 					continue CHECK_VENT;
 
 				final int xxMax = x + 1;
@@ -1832,8 +1866,13 @@ public class Machindustry extends Mod
 				final int sstep = _width - 3;
 				for (int yy = yyMin, ii = xxMin + yyMin * _width; yy <= yyMax; ++yy, ii += sstep)
 					for (int xx = xxMin; xx <= xxMax; ++xx, ++ii)
-						if (tiles.geti(ii).floor().attributes.get(Attribute.steam) <= 0F)
+					{
+						tile = tiles.geti(ii);
+						build = tile.build;
+
+						if (tile.floor().attributes.get(Attribute.steam) <= 0F || (build != null && build.team == team) || GetPlanIntersection(queue, xx, yy) != null)
 							continue CHECK_VENT;
+					}
 
 				if (Build.validPlace(Blocks.turbineCondenser, team, x, y, -1))
 				{
@@ -1877,7 +1916,7 @@ public class Machindustry extends Mod
 				for (final Building build : powerGraph.all)
 					powers.addLast(new Point((int)build.tile.x, (int)build.tile.y, (int)build.tile.x + (int)build.tile.y * _width));
 
-			if (!_taskQueue.Produce(new PathTask(powers, turbines, PathType.VENT)))
+			if (!_taskQueue.Produce(new PathTask(powers, turbines, _worldState.BuildPlanEpoch + (long)1, _taskEpoch, PathType.VENT)))
 				Vars.ui.showInfoToast(_resultMessage4, 1F);
 		}
 	}
@@ -2305,7 +2344,6 @@ public class Machindustry extends Mod
 			if (Vars.state.isMenu())
 				_taskQueue.Clear();
 
-			final long taskEpoch = _taskEpoch;
 			final PathTask task = _taskQueue.Consume();
 
 			if (task == null)
@@ -2318,6 +2356,13 @@ public class Machindustry extends Mod
 			}
 			else
 			{
+				while (_worldState.BuildPlanEpoch < task.planEpoch)
+					try
+					{
+						Thread.sleep((long)1);
+					}
+					catch (InterruptedException e) {}
+
 				LinkedList<BuildPlan> buildPlans = null;
 
 				try
@@ -2334,7 +2379,7 @@ public class Machindustry extends Mod
 								((Point)task.o1).y,
 								((Point)task.o2).x,
 								((Point)task.o2).y, 
-								taskEpoch
+								task.taskEpoch
 							);
 							break;
 
@@ -2347,7 +2392,7 @@ public class Machindustry extends Mod
 								((Point)task.o1).y,
 								((Point)task.o2).x,
 								((Point)task.o2).y, 
-								taskEpoch
+								task.taskEpoch
 							);
 							break;
 
@@ -2360,7 +2405,7 @@ public class Machindustry extends Mod
 								((Point)task.o1).y,
 								((Point)task.o2).x,
 								((Point)task.o2).y, 
-								taskEpoch
+								task.taskEpoch
 							);
 							break;
 
@@ -2371,7 +2416,7 @@ public class Machindustry extends Mod
 								_worldState,
 								(LinkedList<Point>)task.o1,
 								(LinkedList<Point>)task.o2,
-								taskEpoch
+								task.taskEpoch
 							);
 							break;
 
@@ -2394,8 +2439,10 @@ public class Machindustry extends Mod
 						(task.o2 instanceof Point ? (" y2 = " + ((Point)task.o2).y + ",") : "") +
 						(task.o2 instanceof LinkedList ? (" list2 size = " + ((LinkedList<?>)task.o2).size() + ",") : "") +
 						" type = " + task.type + "," +
-						" epoch = " + taskEpoch + "," +
-						" global epoch = " + _taskEpoch + "," +
+						" plan epoch = " + task.planEpoch + "," +
+						" task epoch = " + task.taskEpoch + "," +
+						" global plan epoch = " + _worldState.BuildPlanEpoch + "," +
+						" global task epoch = " + _taskEpoch + "," +
 						" exception = '" + e.getMessage() + "'"
 					);
 
@@ -2585,7 +2632,7 @@ public class Machindustry extends Mod
 				else if (code == _beamPathFinderCode)
 				{
 					_beamLastPoint = GetCurrentPoint();
-					if (!_taskQueue.Produce(new PathTask(_beamFirstPoint, _beamLastPoint, PathType.BEAM)))
+					if (!_taskQueue.Produce(new PathTask(_beamFirstPoint, _beamLastPoint, (long)-1, _taskEpoch, PathType.BEAM)))
 						Vars.ui.showInfoToast(_resultMessage4, 1F);
 
 					_beamFirstPoint = null;
@@ -2594,7 +2641,7 @@ public class Machindustry extends Mod
 				else if (code == _liquidPathFinderCode)
 				{
 					_liquidLastPoint = GetCurrentPoint();
-					if (!_taskQueue.Produce(new PathTask(_liquidFirstPoint, _liquidLastPoint, PathType.LIQUID)))
+					if (!_taskQueue.Produce(new PathTask(_liquidFirstPoint, _liquidLastPoint, (long)-1, _taskEpoch, PathType.LIQUID)))
 						Vars.ui.showInfoToast(_resultMessage4, 1F);
 
 					_liquidFirstPoint = null;
@@ -2603,7 +2650,7 @@ public class Machindustry extends Mod
 				else if (code == _solidPathFinderCode)
 				{
 					_solidLastPoint = GetCurrentPoint();
-					if (!_taskQueue.Produce(new PathTask(_solidFirstPoint, _solidLastPoint, PathType.SOLID)))
+					if (!_taskQueue.Produce(new PathTask(_solidFirstPoint, _solidLastPoint, (long)-1, _taskEpoch, PathType.SOLID)))
 						Vars.ui.showInfoToast(_resultMessage4, 1F);
 
 					DisableRouterSorter(_solidFirstPoint.x, _solidFirstPoint.y);
