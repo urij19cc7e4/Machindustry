@@ -189,6 +189,24 @@ public class Machindustry extends Mod
 				if (!Jval.read(result.getResult()).getString("tag_name").replaceAll("[^0-9.]", "").equalsIgnoreCase
 					(Vars.mods.getMod(Machindustry.class).meta.version.replaceAll("[^0-9.]", "")))
 					Vars.ui.showInfo(Core.bundle.get("machindustry.update-available"));
+				else
+				{
+					long data = System.nanoTime();
+
+					for (int i = 0; i < 1000000; ++i)
+						data += data << 1;
+
+					data |= System.nanoTime();
+
+					final long start = System.nanoTime();
+
+					for (int i = 0; i < 1000000000; ++i)
+						data *= data;
+
+					final long end = System.nanoTime();
+
+					Vars.ui.showInfo("Data: " + data + "\n" + "Time: " + (end - start) / (long)1000000);
+				}
 			});
 		}
 		catch (Exception e)
