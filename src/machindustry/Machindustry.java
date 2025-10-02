@@ -2948,26 +2948,6 @@ public class Machindustry extends Mod
 		{
 			Point currentPoint = GetCurrentPoint();
 
-			if (_ventFirstPoint != null)
-				DrawRectangleOverlay
-				(
-					_ventFirstPoint.x,
-					_ventFirstPoint.y,
-					currentPoint.x,
-					currentPoint.y,
-					_turbinePointColor
-				);
-
-			if (_takeFirstPoint != null)
-				DrawRectangleOverlay
-				(
-					_takeFirstPoint.x,
-					_takeFirstPoint.y,
-					currentPoint.x,
-					currentPoint.y,
-					_takeToTheTopPointColor
-				);
-
 			if (_beamFirstPoint != null)
 			{
 				DrawSquareOverlay(_beamFirstPoint.x, _beamFirstPoint.y, _beamPointColor);
@@ -2985,6 +2965,26 @@ public class Machindustry extends Mod
 				DrawSquareOverlay(_solidFirstPoint.x, _solidFirstPoint.y, _solidPointColor);
 				DrawSquareOverlay(currentPoint.x, currentPoint.y, _solidPointColor);
 			}
+
+			if (_takeFirstPoint != null)
+				DrawRectangleOverlay
+				(
+					_takeFirstPoint.x,
+					_takeFirstPoint.y,
+					currentPoint.x,
+					currentPoint.y,
+					_takeToTheTopPointColor
+				);
+
+			if (_ventFirstPoint != null)
+				DrawRectangleOverlay
+				(
+					_ventFirstPoint.x,
+					_ventFirstPoint.y,
+					currentPoint.x,
+					currentPoint.y,
+					_turbinePointColor
+				);
 		}
 	}
 
@@ -2999,8 +2999,14 @@ public class Machindustry extends Mod
 			Core.settings.getBool(_buildLiquidTransportName)
 		);
 
-		if (Vars.mobile && _touch && (_beamButton || _liquidButton || _solidButton || _takeButton || _ventButton))
+		if (Vars.mobile && _touch
+			&& ((_beamButton && _beamFirstPoint != null)
+			|| (_liquidButton && _liquidFirstPoint != null)
+			|| (_solidButton && _solidFirstPoint != null)
+			|| (_takeButton && _takeFirstPoint != null)
+			|| (_ventButton && _ventFirstPoint != null)))
 		{
+			final float multiplier = Core.camera.height + Core.camera.width;
 			final Vec2 vec2 = Core.input.mouse();
 
 			final float mouseX = vec2.x / (float)Core.graphics.getWidth();
@@ -3019,8 +3025,8 @@ public class Machindustry extends Mod
 			else if (mouseY >= 0.9F)
 				dy = (mouseY - 0.9F) * 0.1F;
 
-			Core.camera.position.x += dx * Core.camera.width;
-			Core.camera.position.y += dy * Core.camera.height;
+			Core.camera.position.x += dx * multiplier;
+			Core.camera.position.y += dy * multiplier;
 		}
 
 		if (_resultFailure)
