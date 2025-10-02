@@ -2999,10 +2999,28 @@ public class Machindustry extends Mod
 			Core.settings.getBool(_buildLiquidTransportName)
 		);
 
-		if (true || _touch && (_beamButton || _liquidButton || _solidButton || _takeButton || _ventButton))
+		if (Vars.mobile && _touch && (_beamButton || _liquidButton || _solidButton || _takeButton || _ventButton))
 		{
-			Core.camera.position.x *= 1.001F;
-			Core.camera.position.y *= 1.001F;
+			final Vec2 vec2 = Core.input.mouse();
+
+			final float mouseX = vec2.x / (float)Core.graphics.getWidth();
+			final float mouseY = vec2.y / (float)Core.graphics.getHeight();
+
+			float dx = 0F;
+			float dy = 0F;
+
+			if (mouseX <= 0.1F)
+				dx = (0.1F - mouseX) * -0.1F;
+			else if (mouseX >= 0.9F)
+				dx = (mouseX - 0.9F) * 0.1F;
+
+			if (mouseY <= 0.1F)
+				dy = (0.1F - mouseY) * -0.1F;
+			else if (mouseY >= 0.9F)
+				dy = (mouseY - 0.9F) * 0.1F;
+
+			Core.camera.position.x += dx * Core.camera.width;
+			Core.camera.position.y += dy * Core.camera.height;
 		}
 
 		if (_resultFailure)
