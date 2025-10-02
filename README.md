@@ -1,6 +1,6 @@
 # Machindustry
 
-This mod is focused on the quality of the game in PvP mode on the planet Erekir. It is not intended for mobile devices.
+This mod is focused on the quality of the game in PvP mode on the planet Erekir.
 
 ## Features
 
@@ -22,6 +22,3 @@ Will this mod work with any other content besides Erekir (like Asthosus)?<br>
 
 Will there be a version of this mod for Serpulo?<br>
 **No**[](/ "Unless someone reworks these algorithms for Serpulo")
-
-Will there be a version of this mod for mobile devices?<br>
-**Mb**

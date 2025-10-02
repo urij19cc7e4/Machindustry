@@ -14,7 +14,6 @@ import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.Fill;
 import arc.input.InputProcessor;
 import arc.input.KeyCode;
-import arc.math.Mat;
 import arc.math.Mathf;
 import arc.math.geom.Vec2;
 import arc.scene.Element;
@@ -2999,12 +2998,8 @@ public class Machindustry extends Mod
 			Core.settings.getBool(_buildLiquidTransportName)
 		);
 
-		if (Vars.mobile && _touch
-			&& ((_beamButton && _beamFirstPoint != null)
-			|| (_liquidButton && _liquidFirstPoint != null)
-			|| (_solidButton && _solidFirstPoint != null)
-			|| (_takeButton && _takeFirstPoint != null)
-			|| (_ventButton && _ventFirstPoint != null)))
+		if (Vars.mobile && _touch && ((_beamButton && _beamFirstPoint != null) || (_liquidButton && _liquidFirstPoint != null)
+			|| (_solidButton && _solidFirstPoint != null) || (_takeButton && _takeFirstPoint != null) || (_ventButton && _ventFirstPoint != null)))
 		{
 			final float multiplier = Core.camera.height + Core.camera.width;
 			final Vec2 vec2 = Core.input.mouse();
