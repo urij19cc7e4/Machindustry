@@ -20,7 +20,6 @@ import mindustry.game.Teams.TeamData;
 import mindustry.gen.Building;
 import mindustry.graphics.Voronoi;
 import mindustry.graphics.Voronoi.GraphEdge;
-import mindustry.input.MobileInput;
 import mindustry.world.Block;
 import mindustry.world.Build;
 import mindustry.world.Tile;
@@ -88,6 +87,11 @@ public class WorldState implements AutoCloseable
 	public long BuildPlanEpoch = (long)0;
 
 	/**
+	 * Add build plans to prewiev queue not to build queue
+	*/
+	public boolean BuildPlansPreview;
+
+	/**
 	 * Better safe than sorry. Increases polygon borders between cores from 1 to 3. This is TILE term not UNIT (not x8).
 	*/
 	public boolean PolygonSafeZone = true;
@@ -107,8 +111,6 @@ public class WorldState implements AutoCloseable
 	*/
 	public Runnable BeforeUpdateFunc = null;
 
-	private long cntr = 0;
-
 	/**
 	 * Interacts with game data in main game thread.
 	 * BuildPlansMachinary field is copied to player building plans.
@@ -123,30 +125,52 @@ public class WorldState implements AutoCloseable
 		if (beforeUpdateFunc != null)
 			beforeUpdateFunc.run();
 
+		final Queue<BuildPlan> buildQueue = Vars.player.unit().plans;
+		final Seq<BuildPlan> previewQueue = Vars.control.input.selectPlans;
 		final Seq<TeamData> teams = Vars.state.teams.active;
-		final Queue<BuildPlan> queue = Vars.player.unit().plans;
 
-		++cntr;
-		Vars.ui.showInfoToast(Vars.control.input instanceof MobileInput && cntr % 60 == 0 ? ((MobileInput)Vars.control.input).linePlans.size + " " +
-			((MobileInput)Vars.control.input).selectPlans.size + " " + ((MobileInput)Vars.control.input).removals.size : "", 1F);
+		if (BuildPlansPreview)
+			while (!BuildPlansMachinary.IsEmpty())
+			{
+				final BuildPlan[] buildPlansMachinary = BuildPlansMachinary.Consume();
+				previewQueue.addAll(buildPlansMachinary, 0, buildPlansMachinary.length);
+			}
+		else
+			while (!BuildPlansMachinary.IsEmpty())
+			{
+				final BuildPlan[] buildPlansMachinary = BuildPlansMachinary.Consume();
+				buildQueue.ensureCapacity(buildPlansMachinary.length);
 
-		while (!BuildPlansMachinary.IsEmpty())
-		{
-			final BuildPlan[] buildPlansMachinary = BuildPlansMachinary.Consume();
-
-			queue.ensureCapacity(buildPlansMachinary.length);
-
-			for (final BuildPlan buildPlan : buildPlansMachinary)
-				queue.addLast(buildPlan);
-		}
-
-		final BuildPlan[] buildPlans = new BuildPlan[queue.size];
+				for (final BuildPlan buildPlan : buildPlansMachinary)
+					buildQueue.addLast(buildPlan);
+			}
 
 		CoreBuild[] cores;
-		int count = 0;
+		int count = buildQueue.size;
 
-		for (final BuildPlan buildPlan : queue)
+		for (final BuildPlan buildPlan : previewQueue)
+		{
+			final Block block = buildPlan.block;
+
+			if (buildPlan.x + block.size + block.sizeOffset < Width && buildPlan.x + block.sizeOffset >= 0
+				&& buildPlan.y + block.size + block.sizeOffset < Height && buildPlan.y + block.sizeOffset >= 0)
+				++count;
+		}
+
+		final BuildPlan[] buildPlans = new BuildPlan[count];
+		count = 0;
+
+		for (final BuildPlan buildPlan : buildQueue)
 			buildPlans[count++] = buildPlan;
+
+		for (final BuildPlan buildPlan : previewQueue)
+		{
+			final Block block = buildPlan.block;
+
+			if (buildPlan.x + block.size + block.sizeOffset < Width && buildPlan.x + block.sizeOffset >= 0
+				&& buildPlan.y + block.size + block.sizeOffset < Height && buildPlan.y + block.sizeOffset >= 0)
+				buildPlans[count++] = buildPlan;
+		}
 
 		count = 0;
 
@@ -185,12 +209,13 @@ public class WorldState implements AutoCloseable
 	/**
 	 * INVOKE ONLY IN MAIN GAME THREAD
 	*/
-	public WorldState(int height, int width)
+	public WorldState(int height, int width, boolean preview)
 	{
 		Height = height;
 		Width = width;
 		Size = height * width;
 		Map = new boolean[Size];
+		BuildPlansPreview = preview;
 
 		try
 		{
@@ -212,9 +237,9 @@ public class WorldState implements AutoCloseable
 	/**
 	 * INVOKE ONLY IN MAIN GAME THREAD
 	*/
-	public WorldState(int height, int width, boolean polygonSZ, float radiusSZ)
+	public WorldState(int height, int width, boolean preview, boolean polygonSZ, float radiusSZ)
 	{
-		this(height, width);
+		this(height, width, preview);
 
 		PolygonSafeZone = polygonSZ;
 		RadiusSafeZone = radiusSZ;
@@ -223,9 +248,9 @@ public class WorldState implements AutoCloseable
 	/**
 	 * INVOKE ONLY IN MAIN GAME THREAD
 	*/
-	public WorldState(int height, int width, boolean polygonSZ, float radiusSZ, Runnable after, Runnable before)
+	public WorldState(int height, int width, boolean preview, boolean polygonSZ, float radiusSZ, Runnable after, Runnable before)
 	{
-		this(height, width, polygonSZ, radiusSZ);
+		this(height, width, preview, polygonSZ, radiusSZ);
 
 		AfterUpdateFunc = after;
 		BeforeUpdateFunc = before;

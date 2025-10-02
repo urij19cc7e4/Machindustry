@@ -14,17 +14,17 @@ import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.Fill;
 import arc.input.InputProcessor;
 import arc.input.KeyCode;
+import arc.math.Mat;
 import arc.math.Mathf;
 import arc.math.geom.Vec2;
 import arc.scene.Element;
-import arc.scene.event.InputEvent;
-import arc.scene.event.InputListener;
 import arc.scene.style.TextureRegionDrawable;
 import arc.scene.ui.Label;
 import arc.scene.ui.ScrollPane;
 import arc.scene.ui.layout.Scl;
 import arc.scene.ui.layout.Table;
 import arc.struct.Queue;
+import arc.struct.Seq;
 import arc.util.Http;
 import arc.util.Scaling;
 import arc.util.serialization.Jval;
@@ -45,7 +45,6 @@ import mindustry.ui.dialogs.BaseDialog;
 import mindustry.ui.dialogs.SettingsMenuDialog.SettingsCategory;
 import mindustry.ui.dialogs.SettingsMenuDialog.SettingsTable;
 import mindustry.ui.dialogs.SettingsMenuDialog.SettingsTable.Setting;
-import mindustry.ui.dialogs.SettingsMenuDialog.SettingsTable.TextSetting;
 import mindustry.world.Block;
 import mindustry.world.Build;
 import mindustry.world.Tile;
@@ -72,6 +71,8 @@ public class Machindustry extends Mod
 	private static final String _name = "machindustry";
 
 	private static final String _buttonsName = "buttons";
+	private static final String _previewName = "preview";
+
 	private static final String _polygonSafeZoneName = "polygon-safe-zone";
 	private static final String _radiusSafeZoneName = "radius-safe-zone";
 
@@ -167,6 +168,7 @@ public class Machindustry extends Mod
 	private int _width = -1;
 	private int _size = -1;
 
+	private boolean[] _buildMap = null;
 	private boolean[] _masksMap = null;
 	private WorldState _worldState = null;
 
@@ -229,7 +231,10 @@ public class Machindustry extends Mod
 			if (tiles == null)
 				throw new NullPointerException("Vars.world.tiles is null");
 
-			final BuildPlan buildPlan = GetPlanIntersection(Vars.player.unit().plans, x, y);
+			BuildPlan buildPlan = GetPlanIntersection(Vars.player.unit().plans, x, y);
+
+			if (buildPlan == null)
+				buildPlan = GetPlanIntersection(Vars.control.input.selectPlans, x, y);
 
 			final Tile tile = tiles.get(x, y);
 			final Block block = buildPlan == null ? tile.block() : buildPlan.block;
@@ -252,6 +257,7 @@ public class Machindustry extends Mod
 	private static boolean DoHandle()
 	{
 		return !Core.scene.hasKeyboard()
+			&& !Vars.control.input.commandMode
 			&& !Vars.state.isMenu()
 			&& !Vars.ui.about.isShown()
 			&& !Vars.ui.admins.isShown()
@@ -288,8 +294,6 @@ public class Machindustry extends Mod
 
 	private static BuildPlan GetPlanIntersection(final BuildPlan[] buildPlans, final int x, final int y)
 	{
-		BuildPlan rBuildPlan = null;
-
 		for (final BuildPlan buildPlan : buildPlans)
 		{
 			final Block block = buildPlan.block;
@@ -301,16 +305,14 @@ public class Machindustry extends Mod
 			final int y2 = y1 + block.size - 1;
 
 			if (x1 <= x && x <= x2 && y1 <= y && y <= y2)
-				rBuildPlan = buildPlan;
+				return buildPlan;
 		}
 
-		return rBuildPlan;
+		return null;
 	}
 
 	private static BuildPlan GetPlanIntersection(final Queue<BuildPlan> buildPlans, final int x, final int y)
 	{
-		BuildPlan rBuildPlan = null;
-
 		for (final BuildPlan buildPlan : buildPlans)
 		{
 			final Block block = buildPlan.block;
@@ -322,10 +324,29 @@ public class Machindustry extends Mod
 			final int y2 = y1 + block.size - 1;
 
 			if (x1 <= x && x <= x2 && y1 <= y && y <= y2)
-				rBuildPlan = buildPlan;
+				return buildPlan;
 		}
 
-		return rBuildPlan;
+		return null;
+	}
+
+	private static BuildPlan GetPlanIntersection(final Seq<BuildPlan> buildPlans, final int x, final int y)
+	{
+		for (final BuildPlan buildPlan : buildPlans)
+		{
+			final Block block = buildPlan.block;
+
+			final int x1 = buildPlan.x + block.sizeOffset;
+			final int x2 = x1 + block.size - 1;
+
+			final int y1 = buildPlan.y + block.sizeOffset;
+			final int y2 = y1 + block.size - 1;
+
+			if (x1 <= x && x <= x2 && y1 <= y && y <= y2)
+				return buildPlan;
+		}
+
+		return null;
 	}
 
 	private static String GetReplacerSolidName(int value)
@@ -636,6 +657,9 @@ public class Machindustry extends Mod
 
 		machindustrySettingsTable.pref(invisibleSpace);
 		machindustrySettingsTable.checkPref(_buttonsName, Vars.mobile);
+		machindustrySettingsTable.checkPref(_previewName, Vars.mobile);
+
+		machindustrySettingsTable.pref(invisibleSpace);
 		machindustrySettingsTable.checkPref(_polygonSafeZoneName, true);
 		machindustrySettingsTable.sliderPref(_radiusSafeZoneName, 1, 0, 9, 1, v -> Integer.toString(v));
 
@@ -678,8 +702,8 @@ public class Machindustry extends Mod
 
 		machindustrySettingsTable.pref(invisibleSpace);
 		machindustrySettingsTable.sliderPref(_beamFrequencyName, 1000, 100, 10000, 100, v -> Integer.toString(v));
-		machindustrySettingsTable.sliderPref(_beamBuildTimeName, 20, 2, 200, 2, v -> Integer.toString(v));
-		machindustrySettingsTable.sliderPref(_beamBuildTotalTimeName, 200, 20, 2000, 20, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_beamBuildTimeName, Vars.mobile ? 50 : 20, 2, 200, 2, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_beamBuildTotalTimeName, Vars.mobile ? 500 : 200, 20, 2000, 20, v -> Integer.toString(v));
 
 		machindustrySettingsTable.pref(invisibleSpace);
 		machindustrySettingsTable.checkPref(_beamMaskAroundBuildName, false);
@@ -703,8 +727,8 @@ public class Machindustry extends Mod
 
 		machindustrySettingsTable.pref(invisibleSpace);
 		machindustrySettingsTable.sliderPref(_liquidFrequencyName, 1000, 100, 10000, 100, v -> Integer.toString(v));
-		machindustrySettingsTable.sliderPref(_liquidBuildTimeName, 100, 10, 1000, 10, v -> Integer.toString(v));
-		machindustrySettingsTable.sliderPref(_liquidBuildTotalTimeName, 1000, 100, 10000, 100, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_liquidBuildTimeName, Vars.mobile ? 250 : 100, 10, 1000, 10, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_liquidBuildTotalTimeName, Vars.mobile ? 2500 : 1000, 100, 10000, 100, v -> Integer.toString(v));
 
 		machindustrySettingsTable.pref(invisibleSpace);
 		machindustrySettingsTable.checkPref(_liquidMaskAroundBuildName, false);
@@ -729,8 +753,8 @@ public class Machindustry extends Mod
 
 		machindustrySettingsTable.pref(invisibleSpace);
 		machindustrySettingsTable.sliderPref(_solidFrequencyName, 1000, 100, 10000, 100, v -> Integer.toString(v));
-		machindustrySettingsTable.sliderPref(_solidBuildTimeName, 100, 10, 1000, 10, v -> Integer.toString(v));
-		machindustrySettingsTable.sliderPref(_solidBuildTotalTimeName, 1000, 100, 10000, 100, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_solidBuildTimeName, Vars.mobile ? 250 : 100, 10, 1000, 10, v -> Integer.toString(v));
+		machindustrySettingsTable.sliderPref(_solidBuildTotalTimeName, Vars.mobile ? 2500 : 1000, 100, 10000, 100, v -> Integer.toString(v));
 
 		machindustrySettingsTable.pref(invisibleSpace);
 		machindustrySettingsTable.checkPref(_solidMaskAroundBuildName, false);
@@ -1889,7 +1913,47 @@ public class Machindustry extends Mod
 		final LinkedList<Point> powers = new LinkedList<Point>();
 		final LinkedList<Point> turbines = new LinkedList<Point>();
 
-		final Queue<BuildPlan> queue = Vars.player.unit().plans;
+		final boolean preview = Core.settings.getBool(_previewName);
+
+		final Queue<BuildPlan> buildQueue = Vars.player.unit().plans;
+		final Seq<BuildPlan> previewQueue = Vars.control.input.selectPlans;
+
+		Arrays.fill(_buildMap, false);
+
+		for (final BuildPlan buildPlan : buildQueue)
+		{
+			final Block block = buildPlan.block;
+
+			final int xxMax = Math.min(buildPlan.x + block.size + block.sizeOffset, _width - 1);
+			final int xxMin = Math.max(buildPlan.x + block.sizeOffset, 0);
+
+			final int yyMax = Math.min(buildPlan.y + block.size + block.sizeOffset, _height - 1);
+			final int yyMin = Math.max(buildPlan.y + block.sizeOffset, 0);
+
+			final int sstep = _width + xxMin - xxMax - 1;
+			for (int y = yyMin, i = xxMin + yyMin * _width; y <= yyMax; ++y, i += sstep)
+				for (int x = xxMin; x <= xxMax; ++x, ++i)
+					_buildMap[i] = true;
+		}
+
+		for (final BuildPlan buildPlan : previewQueue)
+		{
+			final Block block = buildPlan.block;
+			if (buildPlan.x + block.size + block.sizeOffset < _width && buildPlan.x + block.sizeOffset >= 0
+				&& buildPlan.y + block.size + block.sizeOffset < _height && buildPlan.y + block.sizeOffset >= 0)
+			{
+				final int xxMax = Math.min(buildPlan.x + block.size + block.sizeOffset, _width - 1);
+				final int xxMin = Math.max(buildPlan.x + block.sizeOffset, 0);
+
+				final int yyMax = Math.min(buildPlan.y + block.size + block.sizeOffset, _height - 1);
+				final int yyMin = Math.max(buildPlan.y + block.sizeOffset, 0);
+
+				final int sstep = _width + xxMin - xxMax - 1;
+				for (int y = yyMin, i = xxMin + yyMin * _width; y <= yyMax; ++y, i += sstep)
+					for (int x = xxMin; x <= xxMax; ++x, ++i)
+						_buildMap[i] = true;
+			}
+		}
 
 		final int step = _width - (xMax - xMin + 1);
 		for (int y = yMin, i = xMin + yMin * _width; y <= yMax; ++y, i += step)
@@ -1899,7 +1963,7 @@ public class Machindustry extends Mod
 				Tile tile = tiles.geti(i);
 				Building build = tile.build;
 
-				if (tile.floor().attributes.get(Attribute.steam) <= 0F || (build != null && build.team == team) || GetPlanIntersection(queue, x, y) != null)
+				if (tile.floor().attributes.get(Attribute.steam) <= 0F || (build != null && build.team == team) || !_buildMap[i])
 					continue CHECK_VENT;
 
 				final int xxMax = x + 1;
@@ -1915,14 +1979,19 @@ public class Machindustry extends Mod
 						tile = tiles.geti(ii);
 						build = tile.build;
 
-						if (tile.floor().attributes.get(Attribute.steam) <= 0F || (build != null && build.team == team) || GetPlanIntersection(queue, xx, yy) != null)
+						if (tile.floor().attributes.get(Attribute.steam) <= 0F || (build != null && build.team == team) || !_buildMap[ii])
 							continue CHECK_VENT;
 					}
 
 				if (Build.validPlace(Blocks.turbineCondenser, team, x, y, -1))
 				{
+					final BuildPlan buildPlan = new BuildPlan(x, y, -1, Blocks.turbineCondenser);
 					turbines.addLast(new Point(x, y, i));
-					queue.addLast(new BuildPlan(x, y, -1, Blocks.turbineCondenser));
+
+					if (preview)
+						previewQueue.add(buildPlan);
+					else
+						buildQueue.addLast(buildPlan);
 				}
 			}
 
@@ -2539,11 +2608,13 @@ public class Machindustry extends Mod
 		if (_worldState != null)
 			_worldState.close();
 
+		_buildMap = new boolean[_size];
 		_masksMap = new boolean[_size];
 		_worldState = new WorldState
 		(
 			_height,
 			_width,
+			Core.settings.getBool(_previewName),
 			Core.settings.getBool(_polygonSafeZoneName),
 			(float)Core.settings.getInt(_radiusSafeZoneName),
 			_worldUpdateRunnable,
@@ -2927,6 +2998,12 @@ public class Machindustry extends Mod
 			Core.settings.getBool(_buildElectricHeaterName),
 			Core.settings.getBool(_buildLiquidTransportName)
 		);
+
+		if (true || _touch && (_beamButton || _liquidButton || _solidButton || _takeButton || _ventButton))
+		{
+			Core.camera.position.x *= 1.001F;
+			Core.camera.position.y *= 1.001F;
+		}
 
 		if (_resultFailure)
 		{
