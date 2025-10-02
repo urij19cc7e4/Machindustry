@@ -12,14 +12,17 @@ import arc.func.Cons;
 import arc.graphics.Color;
 import arc.graphics.g2d.Draw;
 import arc.graphics.g2d.Fill;
+import arc.input.InputProcessor;
 import arc.input.KeyCode;
 import arc.math.Mathf;
 import arc.math.geom.Vec2;
+import arc.scene.Element;
 import arc.scene.event.InputEvent;
 import arc.scene.event.InputListener;
 import arc.scene.style.TextureRegionDrawable;
 import arc.scene.ui.Label;
 import arc.scene.ui.ScrollPane;
+import arc.scene.ui.layout.Scl;
 import arc.scene.ui.layout.Table;
 import arc.struct.Queue;
 import arc.util.Http;
@@ -34,11 +37,15 @@ import mindustry.game.EventType.Trigger;
 import mindustry.game.EventType.WorldLoadEvent;
 import mindustry.game.Team;
 import mindustry.gen.Building;
+import mindustry.gen.Icon;
+import mindustry.gen.Tex;
 import mindustry.mod.Mod;
+import mindustry.ui.Styles;
 import mindustry.ui.dialogs.BaseDialog;
 import mindustry.ui.dialogs.SettingsMenuDialog.SettingsCategory;
 import mindustry.ui.dialogs.SettingsMenuDialog.SettingsTable;
 import mindustry.ui.dialogs.SettingsMenuDialog.SettingsTable.Setting;
+import mindustry.ui.dialogs.SettingsMenuDialog.SettingsTable.TextSetting;
 import mindustry.world.Block;
 import mindustry.world.Build;
 import mindustry.world.Tile;
@@ -64,6 +71,7 @@ public class Machindustry extends Mod
 
 	private static final String _name = "machindustry";
 
+	private static final String _buttonsName = "buttons";
 	private static final String _polygonSafeZoneName = "polygon-safe-zone";
 	private static final String _radiusSafeZoneName = "radius-safe-zone";
 
@@ -113,7 +121,9 @@ public class Machindustry extends Mod
 	private static final String _solidReplaceOneName = "solid-replace-one";
 	private static final String _solidReplaceWithName = "solid-replace-with";
 
-	private final InputListener _inputListener = new MachindustryInputListener();
+	private final InputProcessor _inputListener = new MachindustryInputProcessor();
+
+	private final Cons<Table> _buttonsBuilder = t -> BuildButtonsTable(t);
 	private final Cons<SettingsTable> _settingsBuilder = t -> BuildSettingsTable(t);
 
 	private final Cons<DisposeEvent> _gameExitEventCons = e -> MachindustryDispose();
@@ -133,6 +143,8 @@ public class Machindustry extends Mod
 	private String _resultMessage3 = null;
 	private String _resultMessage4 = null;
 
+	private boolean _touch = false;
+
 	/**
 	 * Used to stop worker thread
 	*/
@@ -148,8 +160,8 @@ public class Machindustry extends Mod
 	private KeyCode _beamPathFinderCode = KeyCode.i;
 	private KeyCode _liquidPathFinderCode = KeyCode.u;
 	private KeyCode _solidPathFinderCode = KeyCode.y;
-	private KeyCode _turbineBuilderCode = KeyCode.o;
 	private KeyCode _takeToTheTopCode = KeyCode.k;
+	private KeyCode _ventBuilderCode = KeyCode.o;
 
 	private int _height = -1;
 	private int _width = -1;
@@ -162,17 +174,23 @@ public class Machindustry extends Mod
 	private LiquidPathFinder _liquidPathFinder = null;
 	private SolidPathFinder _solidPathFinder = null;
 
+	private boolean _beamButton = false;
+	private boolean _liquidButton = false;
+	private boolean _solidButton = false;
+	private boolean _takeButton = false;
+	private boolean _ventButton = false;
+
 	private Point _beamFirstPoint = null;
 	private Point _liquidFirstPoint = null;
 	private Point _solidFirstPoint = null;
-	private Point _turbineFirstPoint = null;
-	private Point _takeToTheTopFirstPoint = null;
+	private Point _takeFirstPoint = null;
+	private Point _ventFirstPoint = null;
 
 	private Point _beamLastPoint = null;
 	private Point _liquidLastPoint = null;
 	private Point _solidLastPoint = null;
-	private Point _turbineLastPoint = null;
-	private Point _takeToTheTopLastPoint = null;
+	private Point _takeLastPoint = null;
+	private Point _ventLastPoint = null;
 
 	private boolean _resultFailure = false;
 	private boolean _resultSuccess = false;
@@ -199,10 +217,8 @@ public class Machindustry extends Mod
 					data |= System.nanoTime();
 
 					final long start = System.nanoTime();
-
 					for (int i = 0; i < 1000000000; ++i)
 						data *= data;
-
 					final long end = System.nanoTime();
 
 					Vars.ui.showInfo("Data: " + data + "\n" + "Time: " + (end - start) / (long)1000000);
@@ -598,6 +614,32 @@ public class Machindustry extends Mod
 		baseDialog.show();
 	}
 
+	private void BuildButtonsTable(Table machindustryButtonsTable)
+	{
+		machindustryButtonsTable.name = "machindustry-buttons";
+		machindustryButtonsTable.right().bottom();
+		machindustryButtonsTable.visible(() -> DoHandle());
+
+		machindustryButtonsTable.table(Tex.buttonEdge2, table ->
+		{
+			table.defaults().size(50F).right().bottom();
+			table.button(Icon.power, Styles.clearNonei, () -> HandleBeamButton()).row();
+			table.button(Icon.liquid, Styles.clearNonei, () -> HandleLiquidButton()).row();
+			table.button(Icon.distribution, Styles.clearNonei, () -> HandleSolidButton()).row();
+			table.button(Icon.star, Styles.clearNonei, () -> HandleTakeButton()).row();
+			table.button(Icon.map, Styles.clearNonei, () -> HandleVentButton()).row();
+		}).update(table ->
+		{
+			Element mindustryButtonsTable = Vars.ui.hudGroup.find("inputTable");
+
+			if (mindustryButtonsTable != null)
+			{
+				mindustryButtonsTable = mindustryButtonsTable.parent.parent.parent;
+				table.setTranslation(Scl.scl(4F) - mindustryButtonsTable.getWidth(), 0F);
+			}
+		}).height(254F);
+	}
+
 	private void BuildSettingsTable(SettingsTable mindustrySettingsTable)
 	{
 		Setting visibleSpace = new SpaceSetting(Color.gold, 25F, 0F, 25F, 0F);
@@ -609,6 +651,7 @@ public class Machindustry extends Mod
 		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.settings-title")));
 
 		machindustrySettingsTable.pref(invisibleSpace);
+		machindustrySettingsTable.checkPref(_buttonsName, Vars.mobile);
 		machindustrySettingsTable.checkPref(_polygonSafeZoneName, true);
 		machindustrySettingsTable.sliderPref(_radiusSafeZoneName, 1, 0, 9, 1, v -> Integer.toString(v));
 
@@ -616,10 +659,10 @@ public class Machindustry extends Mod
 		machindustrySettingsTable.pref(new TextSetting(Core.bundle.get("machindustry.turbine-title")));
 
 		machindustrySettingsTable.pref(invisibleSpace);
-		machindustrySettingsTable.textPref("turbine-key", _turbineBuilderCode.name().toUpperCase(), v ->
+		machindustrySettingsTable.textPref("turbine-key", _ventBuilderCode.name().toUpperCase(), v ->
 		{
 			KeyCode code = Arrays.stream(KeyCode.values()).filter(k -> k.value.equalsIgnoreCase(v)).findFirst().orElse(null);
-			Core.settings.put("turbine-key", code == null ? _turbineBuilderCode.name().toUpperCase() : code.name().toUpperCase());
+			Core.settings.put("turbine-key", code == null ? _ventBuilderCode.name().toUpperCase() : code.name().toUpperCase());
 		});
 
 		machindustrySettingsTable.pref(visibleSpace);
@@ -1951,6 +1994,18 @@ public class Machindustry extends Mod
 		return new Point(x, y, i);
 	}
 
+	private Point GetCurrentPoint(final int sx, final int sy)
+	{
+		final float tilesize = (float)Vars.tilesize;
+		final Vec2 vec2 = Core.input.mouseWorld((float)sx, (float)sy);
+
+		final int x = (int)Math.floor(vec2.x / tilesize + 0.5F);
+		final int y = (int)Math.floor(vec2.y / tilesize + 0.5F);
+		final int i = x + y * _width;
+
+		return new Point(x, y, i);
+	}
+
 	private ArrayList<Point> GetInnerEdgePoints(final Block b, final int x, final int y, final int i)
 	{
 		ArrayList<Point> edgePoints;
@@ -2123,6 +2178,351 @@ public class Machindustry extends Mod
 		SortPoints(pointList2, b, a);
 
 		return new Pair<ArrayList<Point>, ArrayList<Point>>(pointList1, pointList2);
+	}
+
+	private void HandleBeamButton()
+	{
+		_beamButton = true;
+	}
+
+	private void HandleBeamButtonDown(final int x, final int y)
+	{
+		try
+		{
+			_beamFirstPoint = GetCurrentPoint(x, y);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling beam button down: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+	}
+
+	private void HandleBeamButtonUp(final int x, final int y)
+	{
+		try
+		{
+			_beamLastPoint = GetCurrentPoint(x, y);
+			if (!_taskQueue.Produce(new PathTask(_beamFirstPoint, _beamLastPoint, (long)-1, _taskEpoch, PathType.BEAM)))
+				Vars.ui.showInfoToast(_resultMessage4, 1F);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling beam button up: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+
+		_beamFirstPoint = null;
+		_beamLastPoint = null;
+
+		_beamButton = false;
+	}
+
+	private void HandleBeamDown()
+	{
+		try
+		{
+			_beamFirstPoint = GetCurrentPoint();
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling beam down: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+	}
+
+	private void HandleBeamUp()
+	{
+		try
+		{
+			_beamLastPoint = GetCurrentPoint();
+			if (!_taskQueue.Produce(new PathTask(_beamFirstPoint, _beamLastPoint, (long)-1, _taskEpoch, PathType.BEAM)))
+				Vars.ui.showInfoToast(_resultMessage4, 1F);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling beam up: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+
+		_beamFirstPoint = null;
+		_beamLastPoint = null;
+	}
+
+	private void HandleLiquidButton()
+	{
+		_liquidButton = true;
+	}
+
+	private void HandleLiquidButtonDown(final int x, final int y)
+	{
+		try
+		{
+			_liquidFirstPoint = GetCurrentPoint(x, y);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling liquid button down: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+	}
+
+	private void HandleLiquidButtonUp(final int x, final int y)
+	{
+		try
+		{
+			_liquidLastPoint = GetCurrentPoint(x, y);
+			if (!_taskQueue.Produce(new PathTask(_liquidFirstPoint, _liquidLastPoint, (long)-1, _taskEpoch, PathType.LIQUID)))
+				Vars.ui.showInfoToast(_resultMessage4, 1F);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling liquid button up: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+
+		_liquidFirstPoint = null;
+		_liquidLastPoint = null;
+
+		_liquidButton = false;
+	}
+
+	private void HandleLiquidDown()
+	{
+		try
+		{
+			_liquidFirstPoint = GetCurrentPoint();
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling liquid down: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+	}
+
+	private void HandleLiquidUp()
+	{
+		try
+		{
+			_liquidLastPoint = GetCurrentPoint();
+			if (!_taskQueue.Produce(new PathTask(_liquidFirstPoint, _liquidLastPoint, (long)-1, _taskEpoch, PathType.LIQUID)))
+				Vars.ui.showInfoToast(_resultMessage4, 1F);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling liquid up: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+
+		_liquidFirstPoint = null;
+		_liquidLastPoint = null;
+	}
+
+	private void HandleSolidButton()
+	{
+		_solidButton = true;
+	}
+
+	private void HandleSolidButtonDown(final int x, final int y)
+	{
+		try
+		{
+			_solidFirstPoint = GetCurrentPoint(x, y);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling solid button down: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+	}
+
+	private void HandleSolidButtonUp(final int x, final int y)
+	{
+		try
+		{
+			_solidLastPoint = GetCurrentPoint(x, y);
+			if (!_taskQueue.Produce(new PathTask(_solidFirstPoint, _solidLastPoint, (long)-1, _taskEpoch, PathType.SOLID)))
+				Vars.ui.showInfoToast(_resultMessage4, 1F);
+
+			DisableRouterSorter(_solidFirstPoint.x, _solidFirstPoint.y);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling solid button up: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+
+		_solidFirstPoint = null;
+		_solidLastPoint = null;
+
+		_solidButton = false;
+	}
+
+	private void HandleSolidDown()
+	{
+		try
+		{
+			_solidFirstPoint = GetCurrentPoint();
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling solid down: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+	}
+
+	private void HandleSolidUp()
+	{
+		try
+		{
+			_solidLastPoint = GetCurrentPoint();
+			if (!_taskQueue.Produce(new PathTask(_solidFirstPoint, _solidLastPoint, (long)-1, _taskEpoch, PathType.SOLID)))
+				Vars.ui.showInfoToast(_resultMessage4, 1F);
+
+			DisableRouterSorter(_solidFirstPoint.x, _solidFirstPoint.y);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling solid up: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+
+		_solidFirstPoint = null;
+		_solidLastPoint = null;
+	}
+
+	private void HandleTakeButton()
+	{
+		_takeButton = true;
+	}
+
+	private void HandleTakeButtonDown(final int x, final int y)
+	{
+		try
+		{
+			_takeFirstPoint = GetCurrentPoint(x, y);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling take button down: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+	}
+
+	private void HandleTakeButtonUp(final int x, final int y)
+	{
+		try
+		{
+			_takeLastPoint = GetCurrentPoint(x, y);
+			TakeToTheTop(_takeFirstPoint.x, _takeFirstPoint.y, _takeLastPoint.x, _takeLastPoint.y);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling take button up: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+
+		_takeFirstPoint = null;
+		_takeLastPoint = null;
+
+		_takeButton = false;
+	}
+
+	private void HandleTakeDown()
+	{
+		try
+		{
+			_takeFirstPoint = GetCurrentPoint();
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling take down: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+	}
+
+	private void HandleTakeUp()
+	{
+		try
+		{
+			_takeLastPoint = GetCurrentPoint();
+			TakeToTheTop(_takeFirstPoint.x, _takeFirstPoint.y, _takeLastPoint.x, _takeLastPoint.y);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling take up: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+
+		_takeFirstPoint = null;
+		_takeLastPoint = null;
+	}
+
+	private void HandleVentButton()
+	{
+		_ventButton = true;
+	}
+
+	private void HandleVentButtonDown(final int x, final int y)
+	{
+		try
+		{
+			_ventFirstPoint = GetCurrentPoint(x, y);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling vent button down: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+	}
+
+	private void HandleVentButtonUp(final int x, final int y)
+	{
+		try
+		{
+			_ventLastPoint = GetCurrentPoint(x, y);
+			FindVent(_ventFirstPoint.x, _ventFirstPoint.y, _ventLastPoint.x, _ventLastPoint.y);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling vent button up: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+
+		_ventFirstPoint = null;
+		_ventLastPoint = null;
+
+		_ventButton = false;
+	}
+
+	private void HandleVentDown()
+	{
+		try
+		{
+			_ventFirstPoint = GetCurrentPoint();
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling vent down: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+	}
+
+	private void HandleVentUp()
+	{
+		try
+		{
+			_ventLastPoint = GetCurrentPoint();
+			FindVent(_ventFirstPoint.x, _ventFirstPoint.y, _ventLastPoint.x, _ventLastPoint.y);
+		}
+		catch (Exception e)
+		{
+			PrintLine("Exception cacthed when handling vent up: '" + e.getMessage() + "'");
+			e.printStackTrace();
+		}
+
+		_ventFirstPoint = null;
+		_ventLastPoint = null;
 	}
 
 	private void MachindustryDispose()
@@ -2493,21 +2893,21 @@ public class Machindustry extends Mod
 		{
 			Point currentPoint = GetCurrentPoint();
 
-			if (_turbineFirstPoint != null)
+			if (_ventFirstPoint != null)
 				DrawRectangleOverlay
 				(
-					_turbineFirstPoint.x,
-					_turbineFirstPoint.y,
+					_ventFirstPoint.x,
+					_ventFirstPoint.y,
 					currentPoint.x,
 					currentPoint.y,
 					_turbinePointColor
 				);
 
-			if (_takeToTheTopFirstPoint != null)
+			if (_takeFirstPoint != null)
 				DrawRectangleOverlay
 				(
-					_takeToTheTopFirstPoint.x,
-					_takeToTheTopFirstPoint.y,
+					_takeFirstPoint.x,
+					_takeFirstPoint.y,
 					currentPoint.x,
 					currentPoint.y,
 					_takeToTheTopPointColor
@@ -2596,27 +2996,32 @@ public class Machindustry extends Mod
 			_settingsBuilder
 		));
 
-		Core.scene.addListener(_inputListener);
+		_touch = Core.settings.getBool(_buttonsName);
+
+		if (_touch)
+			Vars.ui.hudGroup.fill(_buttonsBuilder);
+
+		Core.input.addProcessor(_inputListener);
 		CheckUpdates();
 	}
 
-	private class MachindustryInputListener extends InputListener
+	private class MachindustryInputProcessor implements InputProcessor
 	{
 		@Override
-		public boolean keyDown(InputEvent event, KeyCode code)
+		public boolean keyDown(KeyCode code)
 		{
 			if (DoHandle())
 			{
-				if (code == _turbineBuilderCode)
-					_turbineFirstPoint = GetCurrentPoint();
-				else if (code == _takeToTheTopCode)
-					_takeToTheTopFirstPoint = GetCurrentPoint();
-				else if (code == _beamPathFinderCode)
-					_beamFirstPoint = GetCurrentPoint();
+				if (code == _beamPathFinderCode)
+					HandleBeamDown();
 				else if (code == _liquidPathFinderCode)
-					_liquidFirstPoint = GetCurrentPoint();
+					HandleLiquidDown();
 				else if (code == _solidPathFinderCode)
-					_solidFirstPoint = GetCurrentPoint();
+					HandleSolidDown();
+				else if (code == _takeToTheTopCode)
+					HandleTakeDown();
+				else if (code == _ventBuilderCode)
+					HandleVentDown();
 				else
 					return false;
 
@@ -2627,55 +3032,68 @@ public class Machindustry extends Mod
 		}
 
 		@Override
-		public boolean keyUp(InputEvent event, KeyCode code)
+		public boolean keyUp(KeyCode code)
 		{
 			if (DoHandle())
 			{
-				if (code == _turbineBuilderCode)
-				{
-					_turbineLastPoint = GetCurrentPoint();
-					FindVent(_turbineFirstPoint.x, _turbineFirstPoint.y, _turbineLastPoint.x, _turbineLastPoint.y);
-
-					_turbineFirstPoint = null;
-					_turbineLastPoint = null;
-				}
-				else if (code == _takeToTheTopCode)
-				{
-					_takeToTheTopLastPoint = GetCurrentPoint();
-					TakeToTheTop(_takeToTheTopFirstPoint.x, _takeToTheTopFirstPoint.y, _takeToTheTopLastPoint.x, _takeToTheTopLastPoint.y);
-
-					_takeToTheTopFirstPoint = null;
-					_takeToTheTopLastPoint = null;
-				}
-				else if (code == _beamPathFinderCode)
-				{
-					_beamLastPoint = GetCurrentPoint();
-					if (!_taskQueue.Produce(new PathTask(_beamFirstPoint, _beamLastPoint, (long)-1, _taskEpoch, PathType.BEAM)))
-						Vars.ui.showInfoToast(_resultMessage4, 1F);
-
-					_beamFirstPoint = null;
-					_beamLastPoint = null;
-				}
+				if (code == _beamPathFinderCode)
+					HandleBeamUp();
 				else if (code == _liquidPathFinderCode)
-				{
-					_liquidLastPoint = GetCurrentPoint();
-					if (!_taskQueue.Produce(new PathTask(_liquidFirstPoint, _liquidLastPoint, (long)-1, _taskEpoch, PathType.LIQUID)))
-						Vars.ui.showInfoToast(_resultMessage4, 1F);
-
-					_liquidFirstPoint = null;
-					_liquidLastPoint = null;
-				}
+					HandleLiquidUp();
 				else if (code == _solidPathFinderCode)
-				{
-					_solidLastPoint = GetCurrentPoint();
-					if (!_taskQueue.Produce(new PathTask(_solidFirstPoint, _solidLastPoint, (long)-1, _taskEpoch, PathType.SOLID)))
-						Vars.ui.showInfoToast(_resultMessage4, 1F);
+					HandleSolidUp();
+				else if (code == _takeToTheTopCode)
+					HandleTakeUp();
+				else if (code == _ventBuilderCode)
+					HandleVentUp();
+				else
+					return false;
 
-					DisableRouterSorter(_solidFirstPoint.x, _solidFirstPoint.y);
+				return true;
+			}
+			else
+				return false;
+		}
 
-					_solidFirstPoint = null;
-					_solidLastPoint = null;
-				}
+		@Override
+		public boolean touchDown(int x, int y, int p, KeyCode code)
+		{
+			if (_touch && DoHandle())
+			{
+				if (_beamButton)
+					HandleBeamButtonDown(x, y);
+				else if (_liquidButton)
+					HandleLiquidButtonDown(x, y);
+				else if (_solidButton)
+					HandleSolidButtonDown(x, y);
+				else if (_takeButton)
+					HandleTakeButtonDown(x, y);
+				else if (_ventButton)
+					HandleVentButtonDown(x, y);
+				else
+					return false;
+
+				return true;
+			}
+			else
+				return false;
+		}
+
+		@Override
+		public boolean touchUp(int x, int y, int p, KeyCode code)
+		{
+			if (_touch && DoHandle())
+			{
+				if (_beamButton)
+					HandleBeamButtonUp(x, y);
+				else if (_liquidButton)
+					HandleLiquidButtonUp(x, y);
+				else if (_solidButton)
+					HandleSolidButtonUp(x, y);
+				else if (_takeButton)
+					HandleTakeButtonUp(x, y);
+				else if (_ventButton)
+					HandleVentButtonUp(x, y);
 				else
 					return false;
 
