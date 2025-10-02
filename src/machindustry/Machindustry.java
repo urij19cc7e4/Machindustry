@@ -207,22 +207,6 @@ public class Machindustry extends Mod
 				if (!Jval.read(result.getResult()).getString("tag_name").replaceAll("[^0-9.]", "").equalsIgnoreCase
 					(Vars.mods.getMod(Machindustry.class).meta.version.replaceAll("[^0-9.]", "")))
 					Vars.ui.showInfo(Core.bundle.get("machindustry.update-available"));
-				else
-				{
-					long data = System.nanoTime();
-
-					for (int i = 0; i < 1000000; ++i)
-						data += data << 1;
-
-					data |= System.nanoTime();
-
-					final long start = System.nanoTime();
-					for (int i = 0; i < 1000000000; ++i)
-						data *= data;
-					final long end = System.nanoTime();
-
-					Vars.ui.showInfo("Data: " + data + "\n" + "Time: " + (end - start) / (long)1000000);
-				}
 			});
 		}
 		catch (Exception e)
@@ -623,9 +607,9 @@ public class Machindustry extends Mod
 		machindustryButtonsTable.table(Tex.buttonEdge2, table ->
 		{
 			table.defaults().size(50F).right().bottom();
-			table.button(Icon.power, Styles.clearNonei, () -> HandleBeamButton()).row();
-			table.button(Icon.liquid, Styles.clearNonei, () -> HandleLiquidButton()).row();
 			table.button(Icon.distribution, Styles.clearNonei, () -> HandleSolidButton()).row();
+			table.button(Icon.liquid, Styles.clearNonei, () -> HandleLiquidButton()).row();
+			table.button(Icon.power, Styles.clearNonei, () -> HandleBeamButton()).row();
 			table.button(Icon.star, Styles.clearNonei, () -> HandleTakeButton()).row();
 			table.button(Icon.map, Styles.clearNonei, () -> HandleVentButton()).row();
 		}).update(table ->

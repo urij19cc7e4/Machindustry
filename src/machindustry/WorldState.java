@@ -20,6 +20,7 @@ import mindustry.game.Teams.TeamData;
 import mindustry.gen.Building;
 import mindustry.graphics.Voronoi;
 import mindustry.graphics.Voronoi.GraphEdge;
+import mindustry.input.MobileInput;
 import mindustry.world.Block;
 import mindustry.world.Build;
 import mindustry.world.Tile;
@@ -106,6 +107,8 @@ public class WorldState implements AutoCloseable
 	*/
 	public Runnable BeforeUpdateFunc = null;
 
+	private long cntr = 0;
+
 	/**
 	 * Interacts with game data in main game thread.
 	 * BuildPlansMachinary field is copied to player building plans.
@@ -122,6 +125,10 @@ public class WorldState implements AutoCloseable
 
 		final Seq<TeamData> teams = Vars.state.teams.active;
 		final Queue<BuildPlan> queue = Vars.player.unit().plans;
+
+		++cntr;
+		Vars.ui.showInfoToast(Vars.control.input instanceof MobileInput && cntr % 60 == 0 ? ((MobileInput)Vars.control.input).linePlans.size + " " +
+			((MobileInput)Vars.control.input).selectPlans.size + " " + ((MobileInput)Vars.control.input).removals.size : "", 1F);
 
 		while (!BuildPlansMachinary.IsEmpty())
 		{
