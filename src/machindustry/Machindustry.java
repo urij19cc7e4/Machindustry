@@ -1962,7 +1962,7 @@ public class Machindustry extends Mod
 				Tile tile = tiles.geti(i);
 				Building build = tile.build;
 
-				if (tile.floor().attributes.get(Attribute.steam) <= 0F || (build != null && build.team == team) || !_buildMap[i])
+				if (tile.floor().attributes.get(Attribute.steam) <= 0F || (build != null && build.team == team) || _buildMap[i])
 					continue CHECK_VENT;
 
 				final int xxMax = x + 1;
@@ -1978,7 +1978,7 @@ public class Machindustry extends Mod
 						tile = tiles.geti(ii);
 						build = tile.build;
 
-						if (tile.floor().attributes.get(Attribute.steam) <= 0F || (build != null && build.team == team) || !_buildMap[ii])
+						if (tile.floor().attributes.get(Attribute.steam) <= 0F || (build != null && build.team == team) || _buildMap[ii])
 							continue CHECK_VENT;
 					}
 
