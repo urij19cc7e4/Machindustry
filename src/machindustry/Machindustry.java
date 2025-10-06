@@ -104,6 +104,7 @@ public class Machindustry extends Mod
 
 	private static final String _liquidIgnoreMaskName = "liquid-path-ignore-mask";
 	private static final String _liquidTargetModeName = "liquid-path-target-mode";
+	private static final String _liquidManhattanName = "liquid-manhattan-distance";
 	private static final String _liquidReplaceOneName = "liquid-replace-one";
 
 	private static final String _solidFrequencyName = "solid-time-check-frequency";
@@ -117,6 +118,7 @@ public class Machindustry extends Mod
 
 	private static final String _solidIgnoreMaskName = "solid-path-ignore-mask";
 	private static final String _solidTargetModeName = "solid-path-target-mode";
+	private static final String _solidManhattanName = "solid-manhattan-distance";
 	private static final String _solidDisableSorterName = "solid-disable-sorter";
 	private static final String _solidReplaceOneName = "solid-replace-one";
 	private static final String _solidReplaceWithName = "solid-replace-with";
@@ -737,7 +739,8 @@ public class Machindustry extends Mod
 		machindustrySettingsTable.checkPref(_liquidIgnoreMaskName, true);
 
 		machindustrySettingsTable.pref(invisibleSpace);
-		machindustrySettingsTable.checkPref(_liquidTargetModeName, true);
+		machindustrySettingsTable.checkPref(_liquidTargetModeName, false);
+		machindustrySettingsTable.checkPref(_liquidManhattanName, false);
 		machindustrySettingsTable.checkPref(_liquidReplaceOneName, true);
 
 		machindustrySettingsTable.pref(visibleSpace);
@@ -763,10 +766,11 @@ public class Machindustry extends Mod
 		machindustrySettingsTable.checkPref(_solidIgnoreMaskName, true);
 
 		machindustrySettingsTable.pref(invisibleSpace);
-		machindustrySettingsTable.checkPref(_solidTargetModeName, true);
+		machindustrySettingsTable.checkPref(_solidTargetModeName, false);
+		machindustrySettingsTable.checkPref(_solidManhattanName, false);
 		machindustrySettingsTable.checkPref(_solidDisableSorterName, false);
 		machindustrySettingsTable.checkPref(_solidReplaceOneName, true);
-		machindustrySettingsTable.sliderPref(_solidReplaceWithName, 0, 0, 2, 1, v -> Core.bundle.get("machindustry.solid-replace-with-" + GetReplacerSolidName(v)));
+		machindustrySettingsTable.sliderPref(_solidReplaceWithName, 0, 0, 2, 1, v -> Core.bundle.get("block." + GetReplacerSolidName(v) + ".name"));
 
 		machindustrySettingsTable.pref(visibleSpace);
 		mindustrySettingsTable.add(machindustrySettingsTable);
@@ -896,8 +900,10 @@ public class Machindustry extends Mod
 						if (build != null && build.team == team && build.tile == tile)
 						{
 							final boolean c = block instanceof CoreBlock;
-							final boolean l = block instanceof LiquidBlock;
-							final boolean s = block.isDuct;
+							final boolean l = block == Blocks.reinforcedConduit || block == Blocks.reinforcedLiquidJunction
+								|| block == Blocks.reinforcedBridgeConduit || block == Blocks.reinforcedLiquidRouter;
+							final boolean s = block.isDuct || block == Blocks.ductRouter || block == Blocks.overflowDuct || block == Blocks.underflowDuct
+								|| block == Blocks.surgeConveyor || block == Blocks.ductUnloader || block == Blocks.surgeRouter;
 							final boolean b = !(c || l || s) && (block.hasItems || block.hasLiquids);
 
 							if ((maskAroundBuild && b) || (maskAroundCore && c) || (maskAroundLiquid && l) || (maskAroundSolid && s))
@@ -2633,7 +2639,8 @@ public class Machindustry extends Mod
 			_height,
 			_width,
 			(long)Core.settings.getInt(_liquidFrequencyName),
-			(long)Core.settings.getInt(_liquidBuildTimeName)
+			(long)Core.settings.getInt(_liquidBuildTimeName),
+			Core.settings.getBool(_liquidManhattanName)
 		);
 
 		_solidPathFinder = new SolidPathFinder
@@ -2641,7 +2648,8 @@ public class Machindustry extends Mod
 			_height,
 			_width,
 			(long)Core.settings.getInt(_solidFrequencyName),
-			(long)Core.settings.getInt(_solidBuildTimeName)
+			(long)Core.settings.getInt(_solidBuildTimeName),
+			Core.settings.getBool(_solidManhattanName)
 		);
 	}
 

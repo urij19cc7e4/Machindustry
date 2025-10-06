@@ -6,4 +6,4 @@ java: true
 main: "machindustry.Machindustry"
 minGameVersion: "146"
 name: "machindustry"
-version: "[gold[]]2.1[[]]"
+version: "[gold[]]2.2[[]]"

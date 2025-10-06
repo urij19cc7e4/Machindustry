@@ -197,6 +197,11 @@ public class SolidPathFinder
 	public long BuildTime = (long)-1;
 
 	/**
+	 * Use manhattan distance when evaluating path node rotate
+	*/
+	public boolean Manhattan = false;
+
+	/**
 	 * Evaluates the possibility of turning the path to the right and the distance to the target.
 	 * Parameters are almost equal to BuildPath's local variables
 	*/
@@ -220,6 +225,11 @@ public class SolidPathFinder
 		// Check rMap to prevent stucking in dead-end
 		if (x1 + 1 < _width)
 		{
+			final int dx = (x1 + 1) - x2;
+			final int dy = y1 - y2;
+
+			final int distance = Manhattan ? Math.abs(dx) + Math.abs(dy) : dx * dx + dy * dy;
+
 			final int right_1_1 = idx + 1;
 			final int right_1_4 = idx4 + 4;
 
@@ -290,16 +300,14 @@ public class SolidPathFinder
 					}
 				}
 
-				final int distance = Math.abs((x1 + 1) - x2) + Math.abs(y1 - y2);
-
-				if (pathNode.r > distance)
+				if (pathNode.r > distance || (pathNode.r == distance && pathNode.s != 1))
 				{
 					pathNode.r = distance;
 					pathNode.s = 1;
 					return true;
 				}
 			}
-			else if (bMap[idx] == 0 && aMap[right_1_1] != PROTECT)
+			else if (bMap[idx] == 0 && aMap[right_1_1] != PROTECT && iMap[right_1_1] == -1)
 			{
 				// Check another bridge heading to this tile
 				if (aMap[idx] == COLLIDE || aMap[idx] == DAMAGE)
@@ -328,8 +336,6 @@ public class SolidPathFinder
 				if (x1 + 2 < _width && !pMap[right_2_1] && (!rMap[right_2_4 + RIGHT] || !rMap[right_2_4 + UPPER]
 					|| !rMap[right_2_4 + BOTTOM]) && aMap[right_2_1] != COLLIDE && aMap[right_2_1] != DAMAGE)
 				{
-					final int distance = Math.abs((x1 + 2) - x2) + Math.abs(y1 - y2);
-
 					if (pathNode.r > distance)
 					{
 						pathNode.r = distance;
@@ -341,10 +347,8 @@ public class SolidPathFinder
 					|| !rMap[right_3_4 + BOTTOM]) && aMap[right_3_1] != COLLIDE && aMap[right_3_1] != DAMAGE)
 				{
 					// Check if there is another bridge in between (1_1 check in above else if)
-					if (aMap[right_2_1] == PROTECT)
+					if (aMap[right_2_1] == PROTECT || iMap[right_2_1] != -1)
 						return false;
-
-					final int distance = Math.abs((x1 + 3) - x2) + Math.abs(y1 - y2);
 
 					if (pathNode.r > distance)
 					{
@@ -357,10 +361,8 @@ public class SolidPathFinder
 					|| !rMap[right_4_4 + BOTTOM]) && aMap[right_4_1] != COLLIDE && aMap[right_4_1] != DAMAGE)
 				{
 					// Check if there is another bridge in between (1_1 check in above else if)
-					if (aMap[right_2_1] == PROTECT || aMap[right_3_1] == PROTECT)
+					if (aMap[right_2_1] == PROTECT || iMap[right_2_1] != -1 || aMap[right_3_1] == PROTECT || iMap[right_3_1] != -1)
 						return false;
-
-					final int distance = Math.abs((x1 + 4) - x2) + Math.abs(y1 - y2);
 
 					if (pathNode.r > distance)
 					{
@@ -399,6 +401,11 @@ public class SolidPathFinder
 		// Check rMap to prevent stucking in dead-end
 		if (y1 + 1 < _height)
 		{
+			final int dx = x1 - x2;
+			final int dy = (y1 + 1) - y2;
+
+			final int distance = Manhattan ? Math.abs(dx) + Math.abs(dy) : dx * dx + dy * dy;
+
 			final int width4 = _width * 4;
 
 			final int upper_1_1 = idx + _width;
@@ -471,16 +478,14 @@ public class SolidPathFinder
 					}
 				}
 
-				final int distance = Math.abs(x1 - x2) + Math.abs((y1 + 1) - y2);
-
-				if (pathNode.r > distance)
+				if (pathNode.r > distance || (pathNode.r == distance && pathNode.s != 1))
 				{
 					pathNode.r = distance;
 					pathNode.s = 1;
 					return true;
 				}
 			}
-			else if (bMap[idx] == 0 && aMap[upper_1_1] != PROTECT)
+			else if (bMap[idx] == 0 && aMap[upper_1_1] != PROTECT && iMap[upper_1_1] == -1)
 			{
 				// Check another bridge heading to this tile
 				if (aMap[idx] == COLLIDE || aMap[idx] == DAMAGE)
@@ -509,8 +514,6 @@ public class SolidPathFinder
 				if (y1 + 2 < _height && !pMap[upper_2_1] && (!rMap[upper_2_4 + UPPER] || !rMap[upper_2_4 + RIGHT]
 					|| !rMap[upper_2_4 + LEFT]) && aMap[upper_2_1] != COLLIDE && aMap[upper_2_1] != DAMAGE)
 				{
-					final int distance = Math.abs(x1 - x2) + Math.abs((y1 + 2) - y2);
-
 					if (pathNode.r > distance)
 					{
 						pathNode.r = distance;
@@ -522,10 +525,8 @@ public class SolidPathFinder
 					|| !rMap[upper_3_4 + LEFT]) && aMap[upper_3_1] != COLLIDE && aMap[upper_3_1] != DAMAGE)
 				{
 					// Check if there is another bridge in between (1_1 check in above else if)
-					if (aMap[upper_2_1] == PROTECT)
+					if (aMap[upper_2_1] == PROTECT || iMap[upper_2_1] != -1)
 						return false;
-
-					final int distance = Math.abs(x1 - x2) + Math.abs((y1 + 3) - y2);
 
 					if (pathNode.r > distance)
 					{
@@ -538,10 +539,8 @@ public class SolidPathFinder
 					|| !rMap[upper_4_4 + LEFT]) && aMap[upper_4_1] != COLLIDE && aMap[upper_4_1] != DAMAGE)
 				{
 					// Check if there is another bridge in between (1_1 check in above else if)
-					if (aMap[upper_2_1] == PROTECT || aMap[upper_3_1] == PROTECT)
+					if (aMap[upper_2_1] == PROTECT || iMap[upper_2_1] != -1 || aMap[upper_3_1] == PROTECT || iMap[upper_3_1] != -1)
 						return false;
-
-					final int distance = Math.abs(x1 - x2) + Math.abs((y1 + 4) - y2);
 
 					if (pathNode.r > distance)
 					{
@@ -580,6 +579,11 @@ public class SolidPathFinder
 		// Check rMap to prevent stucking in dead-end
 		if (x1 - 1 >= 0)
 		{
+			final int dx = (x1 - 1) - x2;
+			final int dy = y1 - y2;
+
+			final int distance = Manhattan ? Math.abs(dx) + Math.abs(dy) : dx * dx + dy * dy;
+
 			final int left_1_1 = idx - 1;
 			final int left_1_4 = idx4 - 4;
 
@@ -650,16 +654,14 @@ public class SolidPathFinder
 					}
 				}
 
-				final int distance = Math.abs((x1 - 1) - x2) + Math.abs(y1 - y2);
-
-				if (pathNode.r > distance)
+				if (pathNode.r > distance || (pathNode.r == distance && pathNode.s != 1))
 				{
 					pathNode.r = distance;
 					pathNode.s = 1;
 					return true;
 				}
 			}
-			else if (bMap[idx] == 0 && aMap[left_1_1] != PROTECT)
+			else if (bMap[idx] == 0 && aMap[left_1_1] != PROTECT && iMap[left_1_1] == -1)
 			{
 				// Check another bridge heading to this tile
 				if (aMap[idx] == COLLIDE || aMap[idx] == DAMAGE)
@@ -688,8 +690,6 @@ public class SolidPathFinder
 				if (x1 - 2 >= 0 && !pMap[left_2_1] && (!rMap[left_2_4 + LEFT] || !rMap[left_2_4 + UPPER]
 					|| !rMap[left_2_4 + BOTTOM]) && aMap[left_2_1] != COLLIDE && aMap[left_2_1] != DAMAGE)
 				{
-					final int distance = Math.abs((x1 - 2) - x2) + Math.abs(y1 - y2);
-
 					if (pathNode.r > distance)
 					{
 						pathNode.r = distance;
@@ -701,10 +701,8 @@ public class SolidPathFinder
 					|| !rMap[left_3_4 + BOTTOM]) && aMap[left_3_1] != COLLIDE && aMap[left_3_1] != DAMAGE)
 				{
 					// Check if there is another bridge in between (1_1 check in above else if)
-					if (aMap[left_2_1] == PROTECT)
+					if (aMap[left_2_1] == PROTECT || iMap[left_2_1] != -1)
 						return false;
-
-					final int distance = Math.abs((x1 - 3) - x2) + Math.abs(y1 - y2);
 
 					if (pathNode.r > distance)
 					{
@@ -717,10 +715,8 @@ public class SolidPathFinder
 					|| !rMap[left_4_4 + BOTTOM]) && aMap[left_4_1] != COLLIDE && aMap[left_4_1] != DAMAGE)
 				{
 					// Check if there is another bridge in between (1_1 check in above else if)
-					if (aMap[left_2_1] == PROTECT || aMap[left_3_1] == PROTECT)
+					if (aMap[left_2_1] == PROTECT || iMap[left_2_1] != -1 || aMap[left_3_1] == PROTECT || iMap[left_3_1] != -1)
 						return false;
-
-					final int distance = Math.abs((x1 - 4) - x2) + Math.abs(y1 - y2);
 
 					if (pathNode.r > distance)
 					{
@@ -759,6 +755,11 @@ public class SolidPathFinder
 		// Check rMap to prevent stucking in dead-end
 		if (y1 - 1 >= 0)
 		{
+			final int dx = x1 - x2;
+			final int dy = (y1 - 1) - y2;
+
+			final int distance = Manhattan ? Math.abs(dx) + Math.abs(dy) : dx * dx + dy * dy;
+
 			final int width4 = _width * 4;
 
 			final int bottom_1_1 = idx - _width;
@@ -831,16 +832,14 @@ public class SolidPathFinder
 					}
 				}
 
-				final int distance = Math.abs(x1 - x2) + Math.abs((y1 - 1) - y2);
-
-				if (pathNode.r > distance)
+				if (pathNode.r > distance || (pathNode.r == distance && pathNode.s != 1))
 				{
 					pathNode.r = distance;
 					pathNode.s = 1;
 					return true;
 				}
 			}
-			else if (bMap[idx] == 0 && aMap[bottom_1_1] != PROTECT)
+			else if (bMap[idx] == 0 && aMap[bottom_1_1] != PROTECT && iMap[bottom_1_1] == -1)
 			{
 				// Check another bridge heading to this tile
 				if (aMap[idx] == COLLIDE || aMap[idx] == DAMAGE)
@@ -869,8 +868,6 @@ public class SolidPathFinder
 				if (y1 - 2 >= 0 && !pMap[bottom_2_1] && (!rMap[bottom_2_4 + BOTTOM] || !rMap[bottom_2_4 + RIGHT]
 					|| !rMap[bottom_2_4 + LEFT]) && aMap[bottom_2_1] != COLLIDE && aMap[bottom_2_1] != DAMAGE)
 				{
-					final int distance = Math.abs(x1 - x2) + Math.abs((y1 - 2) - y2);
-
 					if (pathNode.r > distance)
 					{
 						pathNode.r = distance;
@@ -882,10 +879,8 @@ public class SolidPathFinder
 					|| !rMap[bottom_3_4 + LEFT]) && aMap[bottom_3_1] != COLLIDE && aMap[bottom_3_1] != DAMAGE)
 				{
 					// Check if there is another bridge in between (1_1 check in above else if)
-					if (aMap[bottom_2_1] == PROTECT)
+					if (aMap[bottom_2_1] == PROTECT || iMap[bottom_2_1] != -1)
 						return false;
-
-					final int distance = Math.abs(x1 - x2) + Math.abs((y1 - 3) - y2);
 
 					if (pathNode.r > distance)
 					{
@@ -898,10 +893,8 @@ public class SolidPathFinder
 					|| !rMap[bottom_4_4 + LEFT]) && aMap[bottom_4_1] != COLLIDE && aMap[bottom_4_1] != DAMAGE)
 				{
 					// Check if there is another bridge in between (1_1 check in above else if)
-					if (aMap[bottom_2_1] == PROTECT || aMap[bottom_3_1] == PROTECT)
+					if (aMap[bottom_2_1] == PROTECT || iMap[bottom_2_1] != -1 || aMap[bottom_3_1] == PROTECT || iMap[bottom_3_1] != -1)
 						return false;
-
-					final int distance = Math.abs(x1 - x2) + Math.abs((y1 - 4) - y2);
 
 					if (pathNode.r > distance)
 					{
@@ -1277,12 +1270,13 @@ public class SolidPathFinder
 		pathNodes2 = new ArrayList<PathNode>(_size);
 	}
 
-	public SolidPathFinder(int height, int width, long freq, long time)
+	public SolidPathFinder(int height, int width, long freq, long time, boolean manh)
 	{
 		this(height, width);
 
 		Frequency = freq;
 		BuildTime = time;
+		Manhattan = manh;
 	}
 
 	/**
@@ -1695,7 +1689,7 @@ public class SolidPathFinder
 			// PathNode stores coordinates in x, y fields
 			// 
 			// mStep is stored in PathNode s field during evaluations
-			PathNode pathNode = new PathNode(_height + _width, mStep, x1, y1, idx);
+			PathNode pathNode = new PathNode(Integer.MAX_VALUE, mStep, x1, y1, idx);
 
 			// Reset path node index
 			iMap[idx] = -1;
@@ -2274,7 +2268,7 @@ public class SolidPathFinder
 		final ListIterator<BuildPlan> iterator1 = buildPath.listIterator();
 		final ListIterator<BuildPlan> iterator2 = buildPath.listIterator();
 
-		// Bridges order reversing so it is safer to build
+		// Bridges order reversing because it is safer to build
 		while (iterator1.hasNext())
 		{
 			buildPlan1 = iterator1.next();
