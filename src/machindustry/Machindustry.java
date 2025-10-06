@@ -3068,7 +3068,7 @@ public class Machindustry extends Mod
 
 		_resultMessage1 = " [[";
 		_resultMessage2 = " " + Core.bundle.get("machindustry.ms") + "; ";
-		_resultMessage3 = " " + Core.bundle.get("machindustry.ms") + "]";
+		_resultMessage3 = " " + Core.bundle.get("machindustry.ms") + "][]";
 		_resultMessage4 = Core.bundle.get("machindustry.overflow-message");
 
 		if (!Core.settings.getBool(_name))
